@@ -1,0 +1,19 @@
+*.pyc
+__pycache__
+.tox
+MANIFEST
+*.egg-info
+
+# pytest cache
+.cache
+.pytest_cache
+
+# created by release process
+dist/
+build/
+
+# local test configuration
+test.cfg
+
+# created by local IDE
+.idea/
