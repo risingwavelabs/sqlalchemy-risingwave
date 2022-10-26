@@ -29,11 +29,10 @@ setup(
         "Programming Language :: Python :: 3.9",
     ],
     keywords="SQLAlchemy RisingWave",
-    # project_urls={
-    #     "Documentation": "https://github.com/cockroachdb/sqlalchemy-cockroachdb/wiki",
-    #     "Source": "https://github.com/cockroachdb/sqlalchemy-cockroachdb",
-    #     "Tracker": "https://github.com/cockroachdb/sqlalchemy-cockroachdb/issues",
-    # },
+    project_urls={
+        "Source": "https://github.com/risingwavelabs/sqlalchemy-risingwave",
+        "Tracker": "https://github.com/risingwavelabs/sqlalchemy-risingwave/issues",
+    },
     packages=find_packages(include=["sqlalchemy_risingwave"]),
     include_package_data=True,
     install_requires=["SQLAlchemy"],
