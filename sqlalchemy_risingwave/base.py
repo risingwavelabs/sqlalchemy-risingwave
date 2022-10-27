@@ -1,15 +1,17 @@
 from sqlalchemy.dialects.postgresql.base import PGDialect
-
-class RisingWaveDialect(PGDialect):
+from sqlalchemy.dialects.postgresql.psycopg2 import PGDialect_psycopg2
+class RisingWaveDialect(PGDialect_psycopg2):
     name = "risingwave"
 
     # Do not override connect
     def __init__(self, *args, **kwargs):
+        if kwargs.get("use_native_hstore", False):
+            raise NotImplementedError("use_native_hstore is not supported")
+        if kwargs.get("server_side_cursors", False):
+            raise NotImplementedError("server_side_cursors is not supported")
+        kwargs["use_native_hstore"] = False
+        kwargs["server_side_cursors"] = False
         super().__init__(*args, **kwargs)
-
-    @classmethod
-    def dbapi(cls):
-        raise NotImplementedError
 
     def initialize(self, connection):
         super(PGDialect, self).initialize(connection)

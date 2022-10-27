@@ -10,6 +10,6 @@ if __name__ == "__main__":
     # A long string that contains the necessary Postgres login information
     postgres_str = ('risingwave://{username}:{password}@{ipaddress}:{port}/{dbname}'.format(username=POSTGRES_USERNAME, password=POSTGRES_PASSWORD, ipaddress=POSTGRES_ADDRESS, port=POSTGRES_PORT, dbname=POSTGRES_DBNAME))
     # Create the connection
-    cnx = create_engine(postgres_str, use_native_hstore=False)
+    cnx = create_engine(postgres_str)
 
     pd.read_sql_query('''SELECT 1+1;''', cnx)
