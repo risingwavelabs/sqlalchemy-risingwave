@@ -29,7 +29,7 @@ class SchemaTest(fixtures.TestBase):
     def test_returning_clause(self):
         with testing.db.begin() as conn:
             insp = inspect(testing.db)
-            col_info = insp.get_table_names(conn)
+            table_names = insp.get_table_names(conn)
 
-            for row in col_info:
-                assert row == str("users")
+            for t in table_names:
+                assert t == str("users")

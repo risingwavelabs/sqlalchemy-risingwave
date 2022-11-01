@@ -29,6 +29,12 @@ python demo.py # connect to risedev use sqlalchemy
 
 `sqlalchemy-risingwave` will work like a plugin to be placed into runtime sqlalchemy lib, so that we can overrides some code path to change the behaviour to better fits these python clients with RisingWave. 
 
+## Test
+We use pytest for unittest.
+```
+pytest # to run the test
+```
+
 ## Ref
 [Sqlalchemy dialects doc](https://github.com/sqlalchemy/sqlalchemy/blob/main/README.dialects.rst)
 
