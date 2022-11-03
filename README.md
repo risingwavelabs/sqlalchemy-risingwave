@@ -13,21 +13,18 @@ For psycopg2 support you must install either:
 (The binary package is a practical choice for development and testing but in
 production it is advised to use the package built from sources.)
  
-## Install and usage
-Now the sqlalchemy-risingwave do not published to PyPi, so install this packages locally.
+## Install
+Recommend install packages locally like below. If directly from PyPI, the version may not be the most updated.
 
 ```
 python setup.py sdist bdist_wheel # generate dist
 pip install -e . # install this package
 ```
 
-As in demo.py, use a `risingwave` connection string when creating the `Engine`.
-```
-./risedev p # start local risingwave cluster listening at 4566. 
-python demo.py # connect to risedev use sqlalchemy
-```
+## Usage
+`sqlalchemy-risingwave` will work like a plugin to be placed into runtime sqlalchemy lib, so that we can overrides some code path to change the behaviour to better fits these python clients with RisingWave.
 
-`sqlalchemy-risingwave` will work like a plugin to be placed into runtime sqlalchemy lib, so that we can overrides some code path to change the behaviour to better fits these python clients with RisingWave. 
+See how to use with Superset: [doc](./doc/integrate_with_superset.md)
 
 ## Test
 We use pytest for unittest.
