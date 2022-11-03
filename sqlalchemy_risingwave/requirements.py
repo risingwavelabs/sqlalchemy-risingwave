@@ -2,8 +2,9 @@ from sqlalchemy.testing.requirements import SuiteRequirements as SuiteRequiremen
 
 from sqlalchemy.testing import exclusions
 
+
 class Requirements(SuiteRequirementsSQLA):
-    # TODO: This class is copied from cockroachdb sqlalchemy. May revisit and clean this fields later.
+    # TODO: This class is copied from cockroachdb sqlalchemy. Refine it later.
     # This class configures the sqlalchemy test suite. Oddly, it must
     # be importable in the main codebase and not alongside the tests.
     #

@@ -52,7 +52,6 @@ _type_map = {
     "inet": INET,
 }
 
-# a few basic ones.
 
 class RisingWaveDialect(PGDialect_psycopg2):
     name = "risingwave"

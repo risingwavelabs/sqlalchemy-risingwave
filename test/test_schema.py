@@ -1,6 +1,7 @@
-from sqlalchemy import distinct, func, MetaData, Table, testing, text
-from sqlalchemy import MetaData, Table, Column, Integer, String, testing, inspect
-from sqlalchemy.testing import fixtures, eq_
+from sqlalchemy import text
+from sqlalchemy import MetaData, Table, testing, inspect
+from sqlalchemy.testing import fixtures
+
 
 class SchemaTest(fixtures.TestBase):
 
