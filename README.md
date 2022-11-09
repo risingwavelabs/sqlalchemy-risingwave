@@ -14,6 +14,11 @@ For psycopg2 support you must install either:
 production it is advised to use the package built from sources.)
  
 ## Install
+Install via [PyPI](https://pypi.org/project/sqlalchemy-risingwave/)
+```
+pip install sqlalchemy-risingwave
+```
+
 Recommend install packages locally like below. If directly from PyPI, the version may not be the most updated.
 
 ```
@@ -26,7 +31,13 @@ pip install -e . # install this package
 
 See how to use with Superset: [doc](./doc/integrate_with_superset.md)
 
-## Test
+## Develop
+Install pre-req.
+```
+pip install sqlalchemy alembic pytest psycopg2-binary
+```
+
+### Test
 We use pytest for unittest.
 ```
 pytest # to run the test
