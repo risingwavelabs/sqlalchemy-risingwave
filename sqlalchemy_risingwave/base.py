@@ -118,7 +118,7 @@ class RisingWaveDialect(PGDialect_psycopg2):
         return res
 
     def get_indexes(self, conn, table_name, schema=None, **kw):
-        return dict()
+        return []
 
     def get_foreign_keys_v1(self, conn, table_name, schema=None, **kw):
         raise []
@@ -133,10 +133,10 @@ class RisingWaveDialect(PGDialect_psycopg2):
         return dict()
 
     def get_unique_constraints(self, conn, table_name, schema=None, **kw):
-        raise NotImplementedError
+        return []
 
     def get_check_constraints(self, conn, table_name, schema=None, **kw):
-        raise NotImplementedError
+        return []
 
     def do_rollback_to_savepoint(self, connection, name):
         raise NotImplementedError
