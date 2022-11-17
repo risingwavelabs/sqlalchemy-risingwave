@@ -45,16 +45,6 @@ class RisingWaveDialect(PGDialect_psycopg2):
         return (9, 5, 0)
 
     def get_table_names(self, conn, schema=None, **kw):
-        # # We can't use these statement unitl we set `default_schema_name`.
-        # sql = (
-        #     "SELECT table_name FROM information_schema.tables WHERE "
-        #     "table_schema = :table_schema"
-        # )
-        # rows = conn.execute(
-        #     text(sql),
-        #     {"table_schema": schema or self.default_schema_name},
-        # )
-        # return [row.table_name for row in rows]
         return [row.Name for row in conn.execute("show tables")]
 
     def has_table(self, conn, table, schema=None):
@@ -72,10 +62,10 @@ class RisingWaveDialect(PGDialect_psycopg2):
 
         res = []
         for row in rows:
-            name, type_str = row[:2]
+            name, type_str = row.column_name, row.data_type
             # When there are type parameters, attach them to the
             # returned type object.
-            m = re.match(r"^struct<([a-z ]+)>$", type_str)
+            m = re.match(r"^struct<([a-z ,]+)>$", type_str)
             if m:
                 sub_type = m.group(1)
                 try:
