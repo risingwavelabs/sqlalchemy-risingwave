@@ -45,7 +45,16 @@ class RisingWaveDialect(PGDialect_psycopg2):
         return (9, 5, 0)
 
     def get_table_names(self, conn, schema=None, **kw):
-        # TODO: use \dt instead. Oddly there seems some escape words issue...
+        # # We can't use these statement unitl we set `default_schema_name`.
+        # sql = (
+        #     "SELECT table_name FROM information_schema.tables WHERE "
+        #     "table_schema = :table_schema"
+        # )
+        # rows = conn.execute(
+        #     text(sql),
+        #     {"table_schema": schema or self.default_schema_name},
+        # )
+        # return [row.table_name for row in rows]
         return [row.Name for row in conn.execute("show tables")]
 
     def has_table(self, conn, table, schema=None):
@@ -53,7 +62,7 @@ class RisingWaveDialect(PGDialect_psycopg2):
 
     def get_columns(self, conn, table_name, schema=None, **kw):
         sql = (
-            "select column_name, data_type from information_schema.columns where "
+            "SELECT column_name, data_type FROM information_schema.columns WHERE "
             "table_schema = :table_schema AND table_name = :table_name"
         )
         rows = conn.execute(
