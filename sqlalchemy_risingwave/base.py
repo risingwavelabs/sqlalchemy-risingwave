@@ -9,47 +9,19 @@ from sqlalchemy.dialects.postgresql import UUID
 
 import sqlalchemy.types as sqltypes
 _type_map = {
-    "bool": sqltypes.BOOLEAN,  # introspection returns "BOOL" not boolean
-    "boolean": sqltypes.BOOLEAN,
-    "bigint": sqltypes.BIGINT,
-    "int": sqltypes.INT,
-    "int2": sqltypes.SMALLINT,
-    "int4": sqltypes.INT,
-    "int8": sqltypes.BIGINT,
-    "int32": sqltypes.INT,
-    "int64": sqltypes.BIGINT,
-    "integer": sqltypes.INT,
-    "smallint": sqltypes.INT,
-    "double precision": sqltypes.FLOAT,
-    "float": sqltypes.FLOAT,
-    "float4": sqltypes.FLOAT,
-    "float8": sqltypes.FLOAT,
-    "real": sqltypes.FLOAT,
-    "dec": sqltypes.DECIMAL,
-    "decimal": sqltypes.DECIMAL,
-    "numeric": sqltypes.DECIMAL,
-    "date": sqltypes.DATE,
-    "time": sqltypes.Time,
-    "time without time zone": sqltypes.Time,
-    "timestamp": sqltypes.TIMESTAMP,
-    "timestamptz": sqltypes.TIMESTAMP,
-    "timestamp with time zone": sqltypes.TIMESTAMP,
-    "timestamp without time zone": sqltypes.TIMESTAMP,
-    "interval": sqltypes.Interval,
-    "char": sqltypes.VARCHAR,
-    "char varying": sqltypes.VARCHAR,
-    "character": sqltypes.VARCHAR,
-    "character varying": sqltypes.VARCHAR,
-    "string": sqltypes.VARCHAR,
-    "text": sqltypes.VARCHAR,
-    "varchar": sqltypes.VARCHAR,
-    "blob": sqltypes.BLOB,
-    "bytea": sqltypes.BLOB,
-    "bytes": sqltypes.BLOB,
-    "json": sqltypes.JSON,
-    "jsonb": sqltypes.JSON,
-    "uuid": UUID,
-    "inet": INET,
+    "boolean": sqltypes.BOOLEAN,  # DataType::Boolean
+    "smallint": sqltypes.SMALLINT,  # DataType::Int16
+    "integer": sqltypes.INT,  # DataType::Int32
+    "bigint": sqltypes.BIGINT,  # DataType::Int64
+    "real": sqltypes.FLOAT,  # DataType::Float32
+    "double precision": sqltypes.FLOAT,  # DataType::Float64
+    "numeric": sqltypes.DECIMAL,  # DataType::Decimal
+    "date": sqltypes.DATE,  # DataType::Date
+    "varchar": sqltypes.VARCHAR,  # DataType::Varchar
+    "time without time zone": sqltypes.Time,  # DataType::Time
+    "timestamp without time zone": sqltypes.TIMESTAMP,  # DataType::Timestamp
+    "timestamp with time zone": sqltypes.TIMESTAMP,  # DataType::Timestampz
+    "interval": sqltypes.Interval,  # DataType::Interval
 }
 
 
@@ -81,7 +53,8 @@ class RisingWaveDialect(PGDialect_psycopg2):
 
     def get_columns(self, conn, table_name, schema=None, **kw):
         sql = (
-            "DESCRIBE {}".format(table_name)
+            "select column_name, data_type from information_schema.columns where "
+            "table_schema = :table_schema AND table_name = :table_name"
         )
         rows = conn.execute(
             text(sql),
@@ -93,25 +66,37 @@ class RisingWaveDialect(PGDialect_psycopg2):
             name, type_str = row[:2]
             # When there are type parameters, attach them to the
             # returned type object.
-            m = re.match(r"^(\w+(?: \w+)*)(?:\(([0-9, ]*)\))?$", type_str)
-            if m is None:
-                warn("Could not parse type name '%s'" % type_str)
-                typ = sqltypes.NULLTYPE
-            else:
-                type_name, type_args = m.groups()
+            m = re.match(r"^struct<([a-z ]+)>$", type_str)
+            if m:
+                sub_type = m.group(1)
                 try:
-                    type_class = _type_map[type_name.lower()]
+                    type_class = _type_map[sub_type]
+                    warn("Struct is not supported")
+                    type_class = sqltypes.NULLTYPE
                 except KeyError:
+                    warn(f"Did not recognize type '{sub_type}' of column '{name}'")
+                    type_class = sqltypes.NULLTYPE
+            else:
+                m = re.match(r"^([a-z ]+)((\[\])*)$", type_str)
+                if m:
+                    groups = m.groups()
+                    type_name = groups[0]
+                    try:
+                        type_class = _type_map[type_name]
+                        if len(groups) > 1:
+                            array_suffixs = re.findall(r"\[\]", groups[1])
+                            for i in range(0, len(array_suffixs)):
+                                type_class = sqltypes.ARRAY(type_class)
+                    except KeyError:
+                        warn(f"Did not recognize type '{type_name}' of column '{name}'")
+                        type_class = sqltypes.NULLTYPE
+                else:
                     warn(f"Did not recognize type '{type_name}' of column '{name}'")
                     type_class = sqltypes.NULLTYPE
-                if type_args:
-                    typ = type_class(*[int(s.strip()) for s in type_args.split(",")])
-                else:
-                    typ = type_class
 
             column_info = dict(
                 name=name,
-                type=typ,
+                type=type_class,
             )
 
             res.append(column_info)
