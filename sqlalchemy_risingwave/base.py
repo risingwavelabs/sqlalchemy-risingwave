@@ -65,16 +65,10 @@ class RisingWaveDialect(PGDialect_psycopg2):
             name, type_str = row.column_name, row.data_type
             # When there are type parameters, attach them to the
             # returned type object.
-            m = re.match(r"^struct<([a-z ,]+)>$", type_str)
+            m = re.match(r"^struct<.*>$", type_str)
             if m:
-                sub_type = m.group(1)
-                try:
-                    type_class = _type_map[sub_type]
-                    warn("Struct is not supported")
-                    type_class = sqltypes.NULLTYPE
-                except KeyError:
-                    warn(f"Did not recognize type '{sub_type}' of column '{name}'")
-                    type_class = sqltypes.NULLTYPE
+                warn("Struct is not supported")
+                type_class = sqltypes.NULLTYPE
             else:
                 m = re.match(r"^([a-z ]+)((\[\])*)$", type_str)
                 if m:
