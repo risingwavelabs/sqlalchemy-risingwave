@@ -20,7 +20,7 @@ _type_map = {
     "varchar": sqltypes.VARCHAR,  # DataType::Varchar
     "time without time zone": sqltypes.Time,  # DataType::Time
     "timestamp without time zone": sqltypes.TIMESTAMP,  # DataType::Timestamp
-    "timestamp with time zone": sqltypes.TIMESTAMP,  # DataType::Timestampz
+    "timestamp with time zone": sqltypes.TIMESTAMP(True),  # DataType::Timestampz
     "interval": sqltypes.Interval,  # DataType::Interval
 }
 
