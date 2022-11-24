@@ -80,7 +80,7 @@ class RisingWaveDialect(PGDialect_psycopg2):
             else:
                 m = re.match(r"^([a-z ]+)((\[\])*)$", type_str)
                 kwargs = {}
-                if m and (m.group(1) in _type_map):
+                if m:
                     groups = m.groups()
                     type_name = groups[0]
 
