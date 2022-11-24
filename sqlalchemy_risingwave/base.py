@@ -51,7 +51,7 @@ class RisingWaveDialect(PGDialect_psycopg2):
         )
         rows = conn.execute(
             text(sql),
-            {"table_schema": schema or str(self.default_schema_name)},
+            {"table_schema": schema or self.default_schema_name},
         )
         return [row.table_name for row in rows]
 
