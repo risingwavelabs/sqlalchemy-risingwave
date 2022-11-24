@@ -30,7 +30,7 @@ class SchemaTest(fixtures.TestBase):
     def test_returning_clause(self):
         with testing.db.begin() as conn:
             insp = inspect(testing.db)
-            table_names = insp.get_table_names(conn)
+            table_names = insp.get_table_names()
 
             for t in table_names:
                 assert t == str("users")
