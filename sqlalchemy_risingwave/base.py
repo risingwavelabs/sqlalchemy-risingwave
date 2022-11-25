@@ -20,7 +20,7 @@ _type_map = {
     "varchar": sqltypes.VARCHAR,  # DataType::Varchar
     "time without time zone": sqltypes.Time,  # DataType::Time
     "timestamp without time zone": sqltypes.TIMESTAMP,  # DataType::Timestamp
-    "timestamp with time zone": sqltypes.TIMESTAMP(True),  # DataType::Timestampz
+    "timestamp with time zone": sqltypes.TIMESTAMP,  # DataType::Timestampz
     "interval": sqltypes.Interval,  # DataType::Interval
 }
 
@@ -45,7 +45,15 @@ class RisingWaveDialect(PGDialect_psycopg2):
         return (9, 5, 0)
 
     def get_table_names(self, conn, schema=None, **kw):
-        return [row.Name for row in conn.execute("show tables")]
+        sql = (
+            "SELECT table_name FROM information_schema.tables WHERE "
+            "table_schema = :table_schema"
+        )
+        rows = conn.execute(
+            text(sql),
+            {"table_schema": schema or self.default_schema_name},
+        )
+        return [row.table_name for row in rows]
 
     def has_table(self, conn, table, schema=None):
         return any(t == table for t in self.get_table_names(conn, schema=schema))
@@ -71,20 +79,29 @@ class RisingWaveDialect(PGDialect_psycopg2):
                 type_class = sqltypes.NULLTYPE
             else:
                 m = re.match(r"^([a-z ]+)((\[\])*)$", type_str)
+                kwargs = {}
                 if m:
                     groups = m.groups()
                     type_name = groups[0]
-                    try:
-                        type_class = _type_map[type_name]
-                        if len(groups) > 1:
-                            array_suffixs = re.findall(r"\[\]", groups[1])
-                            for i in range(0, len(array_suffixs)):
-                                type_class = sqltypes.ARRAY(type_class)
-                    except KeyError:
-                        warn(f"Did not recognize type '{type_name}' of column '{name}'")
-                        type_class = sqltypes.NULLTYPE
+
+                    if type_name in _type_map:
+                        data_type = _type_map[type_name]
+                    else:
+                        data_type = None
+
+                    if type_name == "timestamp with time zone":
+                        kwargs["timezone"] = True
                 else:
-                    warn(f"Did not recognize type '{type_name}' of column '{name}'")
+                    data_type = None
+
+                if data_type:
+                    type_class = data_type(**kwargs)
+                    if len(groups) > 1:
+                        array_suffixs = re.findall(r"\[\]", groups[1])
+                        for i in range(0, len(array_suffixs)):
+                            type_class = sqltypes.ARRAY(type_class)
+                else:
+                    warn(f"Did not recognize type '{type_str}' of column '{name}'")
                     type_class = sqltypes.NULLTYPE
 
             column_info = dict(
