@@ -20,6 +20,11 @@ class SchemaTest(fixtures.TestBase):
                     """
                 )
             )
+            conn.execute(
+                text(
+                    "CREATE index users_idx on users(name)"
+                )
+            )
         self.meta = MetaData(schema="public")
 
     def test_get_columns_indexes_across_schema(self):
@@ -34,3 +39,12 @@ class SchemaTest(fixtures.TestBase):
 
             for t in table_names:
                 assert t == str("users")
+
+    def test_get_indexes(self):
+        with testing.db.begin() as conn:
+            insp = inspect(testing.db)
+            indexes = insp.get_indexes("users")
+
+            for index in indexes:
+                assert index["name"] == str("users_idx")
+                assert index["column_names"] == ["name"]
