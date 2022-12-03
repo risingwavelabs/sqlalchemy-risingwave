@@ -118,10 +118,10 @@ class RisingWaveDialect(PGDialect_psycopg2):
         )
 
         sql = (
-            "select i.relname, a.attname, a.attnotnull from pg_catalog.pg_class t "
+            "select i.relname, a.attname from pg_catalog.pg_class t "
             "join pg_catalog.pg_index ix on t.oid = ix.indrelid "
             "join pg_catalog.pg_class i on i.oid = ix.indexrelid "
-            "join pg_catalog.pg_attribute a on t.oid = a.attrelid "
+            "join pg_catalog.pg_attribute a on t.oid = a.attrelid and a.attnum = ANY(ix.indkey)"
             "where t.oid = :table_oid"
         )
         rows = conn.execute(

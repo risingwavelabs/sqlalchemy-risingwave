@@ -7,24 +7,11 @@ class SchemaTest(fixtures.TestBase):
 
     def teardown_method(self, method):
         with testing.db.begin() as conn:
-            conn.execute(text("DROP TABLE IF EXISTS users"))
+            conn.execute("DROP TABLE IF EXISTS users")
 
     def setup_method(self):
         with testing.db.begin() as conn:
-            conn.execute(
-                text(
-                    """
-                    CREATE TABLE users (
-                        name STRING PRIMARY KEY
-                    )
-                    """
-                )
-            )
-            conn.execute(
-                text(
-                    "CREATE index users_idx on users(name)"
-                )
-            )
+            conn.execute("CREATE TABLE users (name STRING PRIMARY KEY)")
         self.meta = MetaData(schema="public")
 
     def test_get_columns_indexes_across_schema(self):
@@ -42,9 +29,14 @@ class SchemaTest(fixtures.TestBase):
 
     def test_get_indexes(self):
         with testing.db.begin() as conn:
-            insp = inspect(testing.db)
-            indexes = insp.get_indexes("users")
+            conn.execute("CREATE TABLE three_columns (id1 INT, id2 INT, id3 INT)")
+            conn.execute("CREATE INDEX three_columns_idx ON three_columns(id2) INCLUDE(id1)")
 
-            for index in indexes:
-                assert index["name"] == str("users_idx")
-                assert index["column_names"] == ["name"]
+            insp = inspect(testing.db)
+            indexes = insp.get_indexes("three_columns")
+
+            assert len(indexes) == 1
+            assert indexes[0]["name"] == "three_columns_idx"
+            assert indexes[0]["column_names"] == ["id2", "id1"]
+
+            conn.execute("DROP TABLE three_columns")
