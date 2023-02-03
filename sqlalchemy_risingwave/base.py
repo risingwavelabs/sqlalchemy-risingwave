@@ -113,7 +113,38 @@ class RisingWaveDialect(PGDialect_psycopg2):
         return res
 
     def get_indexes(self, conn, table_name, schema=None, **kw):
-        return []
+        table_oid = self.get_table_oid(
+            conn, table_name, schema, info_cache=kw.get("info_cache")
+        )
+
+        sql = (
+            "select i.relname, a.attname from pg_catalog.pg_class t "
+            "join pg_catalog.pg_index ix on t.oid = ix.indrelid "
+            "join pg_catalog.pg_class i on i.oid = ix.indexrelid "
+            "join pg_catalog.pg_attribute a on t.oid = a.attrelid and a.attnum = ANY(ix.indkey)"
+            "where t.oid = :table_oid"
+        )
+        rows = conn.execute(
+            text(sql),
+            {"table_oid": table_oid},
+        )
+
+        indexes = {}
+        for row in rows:
+            if not row.relname in indexes:
+                indexes[row.relname] = []
+            indexes[row.relname].append(row.attname)
+
+        res = []
+        for index in indexes:
+            res.append(
+                {
+                    "name": index,
+                    "column_names": indexes[index],
+                    "unique": False,
+                }
+            )
+        return res
 
     def get_foreign_keys_v1(self, conn, table_name, schema=None, **kw):
         raise []
