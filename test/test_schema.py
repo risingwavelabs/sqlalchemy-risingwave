@@ -40,3 +40,17 @@ class SchemaTest(fixtures.TestBase):
             assert indexes[0]["column_names"] == ["id2", "id1"]
 
             conn.execute("DROP TABLE three_columns")
+
+    def test_get_view_names(self):
+        with testing.db.begin() as conn:
+            conn.execute("CREATE TABLE three_columns (id1 INT, id2 INT, id3 INT)")
+            conn.execute("CREATE VIEW three_view AS SELECT * from three_columns")
+
+            insp = inspect(testing.db)
+            indexes = insp.get_view_names()
+
+            assert len(indexes) == 1
+            assert indexes[0] == "three_view"
+
+            conn.execute("DROP VIEW three_view")
+            conn.execute("DROP TABLE three_columns")

@@ -55,6 +55,17 @@ class RisingWaveDialect(PGDialect_psycopg2):
         )
         return [row.table_name for row in rows]
 
+    def get_view_names(self, conn, schema=None, **kw):
+        sql = (
+            "select * from pg_catalog.pg_views"
+        )
+        rows = conn.execute(
+            text(sql),
+            {"table_schema": schema or self.default_schema_name},
+        )
+
+        return [row.viewname for row in rows]
+
     def has_table(self, conn, table, schema=None):
         return any(t == table for t in self.get_table_names(conn, schema=schema))
 
