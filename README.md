@@ -48,7 +48,13 @@ pytest # to run the test
 ```
 
 ## Ref
-[Sqlalchemy dialects doc](https://github.com/sqlalchemy/sqlalchemy/blob/main/README.dialects.rst)
 
-[CocoroachDB sqlalchemy](https://github.com/cockroachdb/sqlalchemy-cockroachdb)
+- [Sqlalchemy dialects doc](https://github.com/sqlalchemy/sqlalchemy/blob/main/README.dialects.rst)
 
+- [CocoroachDB sqlalchemy](https://github.com/cockroachdb/sqlalchemy-cockroachdb)
+
+- [RisingWave: Open-Source Streaming Database](https://www.risingwave.com/database/)
+
+- [RisingWave Cloud](https://www.risingwave.com/cloud/)
+
+- [What is RisingWave?](https://docs.risingwave.com/docs/current/intro/)
