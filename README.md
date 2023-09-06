@@ -1,5 +1,9 @@
 # RisingWave dialect for SQLAlchemy
 
+SQLAlchemy is the Python SQL toolkit and Object Relational Mapper that gives application developers the full power and flexibility of SQL. https://www.sqlalchemy.org/
+
+RisingWave is a cloud-native streaming database that uses SQL as the interface language. It is designed to reduce the complexity and cost of building real-time applications. https://www.risingwave.com
+
 ## Prerequisites
 
 For psycopg2 support you must install either:
