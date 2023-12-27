@@ -1,4 +1,4 @@
-alembic==1.13.0
+alembic==1.13.1
     # via -r test-requirements.in
 async-timeout==4.0.3
     # via asyncpg

@@ -11,4 +11,4 @@ mock
 more-itertools
 psycopg2
 pytest
-sqlalchemy>=1,<2
+sqlalchemy>=1.4,<2
