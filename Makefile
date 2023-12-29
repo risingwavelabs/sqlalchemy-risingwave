@@ -1,4 +1,4 @@
-ENV_BASE=~/
+ENV_BASE=${CURDIR}
 ENV=${ENV_BASE}/sqlalchemy-risingwave/venv
 TOX=${ENV}/bin/tox
 
@@ -9,7 +9,7 @@ all: test lint
 bootstrap:
 	@mkdir -p ${ENV}
 	virtualenv ${ENV}
-	${ENV}/bin/pip install sqlalchemy alembic pytest psycopg2-binary pip-tools
+	${ENV}/bin/pip install sqlalchemy alembic pytest psycopg2-binary pip-tools tox
 	# ${ENV}/bin/pip install -r dev-requirements.txt
 
 .PHONY: clean-bootstrap-env

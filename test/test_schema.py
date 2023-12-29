@@ -19,13 +19,10 @@ class SchemaTest(fixtures.TestBase):
         # across schema table must use schema.table
         Table("users", self.meta, autoload_with=testing.db, schema="public")
 
-    def test_returning_clause(self):
+    def test_has_table(self):
         with testing.db.begin() as conn:
             insp = inspect(testing.db)
-            table_names = insp.get_table_names()
-
-            for t in table_names:
-                assert t == str("users")
+            assert insp.has_table(table_name="users", schema="public")
 
     def test_get_indexes(self):
         with testing.db.begin() as conn:
@@ -48,10 +45,10 @@ class SchemaTest(fixtures.TestBase):
             conn.execute(text("CREATE VIEW three_view AS SELECT * from three_columns"))
 
             insp = inspect(testing.db)
-            indexes = insp.get_view_names()
+            views = insp.get_view_names()
 
-            assert len(indexes) == 1
-            assert indexes[0] == "three_view"
+            assert len(views) == 1
+            assert views[0] == "three_view"
 
             conn.execute(text("DROP VIEW three_view"))
             conn.execute(text("DROP TABLE three_columns"))

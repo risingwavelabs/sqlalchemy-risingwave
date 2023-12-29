@@ -17,3 +17,6 @@ test.cfg
 
 # created by local IDE
 .idea/
+
+# virtualenv
+sqlalchemy-risingwave/venv

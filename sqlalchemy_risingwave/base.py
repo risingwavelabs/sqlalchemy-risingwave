@@ -4,8 +4,6 @@ from sqlalchemy.dialects.postgresql.base import PGDialect
 from sqlalchemy.dialects.postgresql.psycopg2 import PGDialect_psycopg2
 from sqlalchemy import text
 from sqlalchemy.util import warn
-from sqlalchemy.dialects.postgresql import INET
-from sqlalchemy.dialects.postgresql import UUID
 
 import sqlalchemy.types as sqltypes
 
@@ -38,6 +36,7 @@ _type_map = {
     "jsonb": sqltypes.JSON,
 }
 # Unsupported: Int256, Serial, Struct, List
+
 
 class RisingWaveDialect(PGDialect_psycopg2):
     name = "risingwave"
@@ -76,7 +75,7 @@ class RisingWaveDialect(PGDialect_psycopg2):
         rows = conn.execute(text(sql))
         return [row.viewname for row in rows]
 
-    def has_table(self, conn, table, schema=None):
+    def has_table(self, conn, table, schema=None, **kw):
         return any(t == table for t in self.get_table_names(conn, schema=schema))
 
     def get_columns(self, conn, table_name, schema=None, **kw):
@@ -152,7 +151,7 @@ class RisingWaveDialect(PGDialect_psycopg2):
 
         indexes = {}
         for row in rows:
-            if not row.relname in indexes:
+            if row.relname not in indexes:
                 indexes[row.relname] = []
             indexes[row.relname].append(row.attname)
 
