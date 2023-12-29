@@ -8,22 +8,36 @@ from sqlalchemy.dialects.postgresql import INET
 from sqlalchemy.dialects.postgresql import UUID
 
 import sqlalchemy.types as sqltypes
+
 _type_map = {
+    "bool": sqltypes.BOOLEAN,  # DataType::Boolean
     "boolean": sqltypes.BOOLEAN,  # DataType::Boolean
     "smallint": sqltypes.SMALLINT,  # DataType::Int16
+    "int2": sqltypes.SMALLINT,  # DataType::Int16
     "integer": sqltypes.INT,  # DataType::Int32
+    "int4": sqltypes.INT,  # DataType::Int32
     "bigint": sqltypes.BIGINT,  # DataType::Int64
+    "int8": sqltypes.BIGINT,  # DataType::Int64
     "real": sqltypes.FLOAT,  # DataType::Float32
+    "float4": sqltypes.FLOAT,  # DataType::Float32
     "double precision": sqltypes.FLOAT,  # DataType::Float64
+    "float8": sqltypes.FLOAT,  # DataType::Float64
     "numeric": sqltypes.DECIMAL,  # DataType::Decimal
+    "decimal": sqltypes.DECIMAL,  # DataType::Decimal
     "date": sqltypes.DATE,  # DataType::Date
     "varchar": sqltypes.VARCHAR,  # DataType::Varchar
+    "character varying": sqltypes.VARCHAR,  # DataType::Varchar
+    "time": sqltypes.Time,  # DataType::Time
     "time without time zone": sqltypes.Time,  # DataType::Time
+    "timestamp": sqltypes.TIMESTAMP,  # DataType::Timestamp
     "timestamp without time zone": sqltypes.TIMESTAMP,  # DataType::Timestamp
+    "timestamptz": sqltypes.TIMESTAMP,  # DataType::Timestampz
     "timestamp with time zone": sqltypes.TIMESTAMP,  # DataType::Timestampz
     "interval": sqltypes.Interval,  # DataType::Interval
+    "bytea": sqltypes.BLOB,
+    "jsonb": sqltypes.JSON,
 }
-
+# Unsupported: Int256, Serial, Struct, List
 
 class RisingWaveDialect(PGDialect_psycopg2):
     name = "risingwave"
@@ -45,25 +59,21 @@ class RisingWaveDialect(PGDialect_psycopg2):
         return (9, 5, 0)
 
     def get_table_names(self, conn, schema=None, **kw):
-        sql = (
-            "SELECT table_name FROM information_schema.tables WHERE "
-            "table_schema = :table_schema"
-        )
-        rows = conn.execute(
-            text(sql),
-            {"table_schema": schema or self.default_schema_name},
-        )
-        return [row.table_name for row in rows]
+        sql = "SELECT tablename FROM pg_tables"
+        if schema is not None:
+            sql += f" WHERE schemaname = '{schema or self.default_schema_name}'"
+        else:
+            sql += " WHERE schemaname <> 'rw_catalog' and schemaname <> 'pg_catalog' and schemaname <> 'information_schema'"
+        rows = conn.execute(text(sql))
+        return [row.tablename for row in rows]
 
     def get_view_names(self, conn, schema=None, **kw):
-        sql = (
-            "select * from pg_catalog.pg_views"
-        )
-        rows = conn.execute(
-            text(sql),
-            {"table_schema": schema or self.default_schema_name},
-        )
-
+        sql = "SELECT viewname FROM pg_views"
+        if schema is not None:
+            sql += f" WHERE schemaname = '{schema or self.default_schema_name}'"
+        else:
+            sql += " WHERE schemaname <> 'rw_catalog' and schemaname <> 'pg_catalog' and schemaname <> 'information_schema'"
+        rows = conn.execute(text(sql))
         return [row.viewname for row in rows]
 
     def has_table(self, conn, table, schema=None):
