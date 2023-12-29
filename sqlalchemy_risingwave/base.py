@@ -76,7 +76,7 @@ class RisingWaveDialect(PGDialect_psycopg2):
         rows = conn.execute(text(sql))
         return [row.viewname for row in rows]
 
-    def has_table(self, conn, table, schema=None):
+    def has_table(self, conn, table, schema=None, **kw):
         return any(t == table for t in self.get_table_names(conn, schema=schema))
 
     def get_columns(self, conn, table_name, schema=None, **kw):
