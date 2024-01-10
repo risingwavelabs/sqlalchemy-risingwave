@@ -35,6 +35,8 @@ _type_map = {
     "bytea": sqltypes.BLOB,
     "jsonb": sqltypes.JSON,
 }
+
+
 # Unsupported: Int256, Serial, Struct, List
 
 
@@ -170,7 +172,7 @@ class RisingWaveDialect(PGDialect_psycopg2):
         raise []
 
     def get_foreign_keys(
-        self, connection, table_name, schema=None, postgresql_ignore_search_path=False, **kw
+            self, connection, table_name, schema=None, postgresql_ignore_search_path=False, **kw
     ):
         return []
 
