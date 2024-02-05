@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql.psycopg2 import PGDialect_psycopg2
 from sqlalchemy import text
 from sqlalchemy.util import warn
 
+from sqlalchemy import util
 import sqlalchemy.types as sqltypes
 
 _type_map = {
@@ -74,8 +75,16 @@ class RisingWaveDialect(PGDialect_psycopg2):
             sql += f" WHERE schemaname = '{schema or self.default_schema_name}'"
         else:
             sql += " WHERE schemaname <> 'rw_catalog' and schemaname <> 'pg_catalog' and schemaname <> 'information_schema'"
-        rows = conn.execute(text(sql))
-        return [row.viewname for row in rows]
+        views = conn.execute(text(sql))
+
+        # As sqlalchmey has no support for Sources, we categorize as view temporarily.
+        source_sql = f"SELECT rw_catalog.rw_sources.name as source_name FROM rw_catalog.rw_sources JOIN rw_catalog.rw_schemas ON rw_catalog.rw_sources.schema_id = rw_catalog.rw_schemas.id"
+        if schema is not None:
+            source_sql += f" WHERE rw_catalog.rw_schemas.name = '{schema or self.default_schema_name}'"
+        else:
+            source_sql += " WHERE rw_catalog.rw_schemas.name <> 'rw_catalog' and rw_catalog.rw_schemas.name <> 'pg_catalog' and rw_catalog.rw_schemas.name <> 'information_schema'"
+        sources = conn.execute(text(source_sql))
+        return [view.viewname for view in views] + [source.source_name for source in sources]
 
     def has_table(self, conn, table, schema=None, **kw):
         return any(t == table for t in self.get_table_names(conn, schema=schema))
@@ -133,6 +142,38 @@ class RisingWaveDialect(PGDialect_psycopg2):
 
             res.append(column_info)
         return res
+
+    def get_table_oid(self, connection, table_name, schema=None, **kw):
+        table_oid = None
+        if schema is not None:
+            schema_where_clause = "n.nspname = :schema"
+        else:
+            schema_where_clause = "pg_catalog.pg_table_is_visible(r.id)"
+        query = (
+                """
+                SELECT r.id as oid
+                FROM rw_catalog.rw_relations r
+                LEFT JOIN pg_catalog.pg_namespace n ON n.oid = r.schema_id
+                WHERE (%s)
+                AND r.name = :table_name AND r.relation_type in
+                ('table', 'system table', 'view', 'materialized view', 'source', 'sink')
+            """
+                % schema_where_clause
+        )
+        # Since we're binding to unicode, table_name and schema_name must be
+        # unicode.
+        table_name = util.text_type(table_name)
+        if schema is not None:
+            schema = util.text_type(schema)
+        s = text(query).bindparams(table_name=sqltypes.Unicode)
+        s = s.columns(oid=sqltypes.Integer)
+        if schema:
+            s = s.bindparams(sql.bindparam("schema", type_=sqltypes.Unicode))
+        c = connection.execute(s, dict(table_name=table_name, schema=schema))
+        table_oid = c.scalar()
+        if table_oid is None:
+            raise exc.NoSuchTableError(table_name)
+        return table_oid
 
     def get_indexes(self, conn, table_name, schema=None, **kw):
         table_oid = self.get_table_oid(
