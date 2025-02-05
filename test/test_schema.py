@@ -27,15 +27,18 @@ class SchemaTest(fixtures.TestBase):
     def test_get_indexes(self):
         with testing.db.begin() as conn:
             conn.execute(text("CREATE TABLE three_columns (id1 INT, id2 INT, id3 INT)"))
-            conn.execute(text("CREATE INDEX three_columns_idx ON three_columns(id2) INCLUDE(id1)"))
+            conn.execute(
+                text(
+                    "CREATE INDEX three_columns_idx ON three_columns(id2) INCLUDE(id1)"
+                )
+            )
 
             insp = inspect(testing.db)
             indexes = insp.get_indexes("three_columns")
 
             assert len(indexes) == 1
             assert indexes[0]["name"] == "three_columns_idx"
-            # pg will return `"id2", "id1"`
-            assert indexes[0]["column_names"] == ["id2"]
+            assert indexes[0]["column_names"] == ["id2", "id1"]
 
             conn.execute(text("DROP TABLE three_columns"))
 
