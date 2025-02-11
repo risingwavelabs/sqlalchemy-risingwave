@@ -32,11 +32,12 @@ jobs:
         run: |
           ./risingwave >/dev/null 2>stderr.log &
           echo "!!!!!! start"
-          while :; do
-            ready=$(grep -c "ready" stderr.log)
-            echo "!!!!!! ready: $ready"
-            [[ $ready -gt 0 ]] && break
-            sleep 1
-          done
+          # while :; do
+          #   ready=$(grep -c "ready" stderr.log)
+          #   echo "!!!!!! ready: $ready"
+          #   [[ $ready -gt 0 ]] && break
+          #   sleep 1
+          # done
+          sleep 3
           echo "!!!!!!!!!!!!!!!!"
           pytest
