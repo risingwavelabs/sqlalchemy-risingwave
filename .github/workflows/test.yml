@@ -19,12 +19,15 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+          cache-dependency-path: |
+            setup.py
+            test-requirements.txt
       - name: Install RisingWave
         run: curl -L https://risingwave.com/sh | sh
       - name: Install Python dependencies
         run: |
           pip install -r test-requirements.txt
-          pip install -e .
+          pip install .
       - name: Run integration tests
         run: |
           risingwave 2>stderr.log &
