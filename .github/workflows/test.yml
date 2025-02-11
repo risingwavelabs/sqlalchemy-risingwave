@@ -22,18 +22,19 @@ jobs:
           cache-dependency-path: |
             setup.py
             test-requirements.txt
-      - name: Install RisingWave
-        run: curl -L https://risingwave.com/sh | sh
       - name: Install Python dependencies
         run: |
           pip install -r test-requirements.txt
           pip install .
-      - name: Run integration tests
+      - name: Install RisingWave
+        run: curl -L https://risingwave.com/sh | sh
+      - name: Run RisingWave
         run: |
-          risingwave 2>stderr.log &
+          ./risingwave 2>stderr.log &
           while :; do
             ready=$(grep -c "ready" stderr.log)
             [[ $ready -gt 0 ]] && break
             sleep 1
           done
-          pytest
+      - name: Run integration tests
+        run: pytest
