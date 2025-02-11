@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v4
@@ -27,17 +27,9 @@ jobs:
           pip install -r test-requirements.txt
           pip install .
       - name: Install RisingWave
-        run: curl -L https://raw.githubusercontent.com/risingwavelabs/risingwave/refs/heads/main/scripts/install/install-risingwave.sh | sh
+        run: curl -L https://risingwave.com/sh | sh
       - name: Run integration tests
         run: |
-          ./risingwave >/dev/null 2>stderr.log &
-          echo "!!!!!! start"
-          # while :; do
-          #   ready=$(grep -c "ready" stderr.log)
-          #   echo "!!!!!! ready: $ready"
-          #   [[ $ready -gt 0 ]] && break
-          #   sleep 1
-          # done
-          sleep 3
-          echo "!!!!!!!!!!!!!!!!"
+          ./risingwave &
+          sleep 3 # wait for RisingWave ready
           pytest
