@@ -33,7 +33,9 @@ jobs:
           ./risingwave 2>stderr.log &
           while :; do
             ready=$(grep -c "ready" stderr.log)
+            echo "!!!!!! ready: $ready"
             [[ $ready -gt 0 ]] && break
             sleep 1
           done
+          echo "!!!!!!!!!!!!!!!!"
           pytest
