@@ -1,0 +1,35 @@
+name: Integration tests
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install RisingWave
+        run: curl -L https://risingwave.com/sh | sh
+      - name: Install Python dependencies
+        run: |
+          pip install -r test-requirements.txt
+          pip install -e .
+      - name: Run integration tests
+        run: |
+          risingwave 2>stderr.log &
+          while :; do
+            ready=$(grep -c "ready" stderr.log)
+            [[ $ready -gt 0 ]] && break
+            sleep 1
+          done
+          pytest
