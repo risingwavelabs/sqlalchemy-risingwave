@@ -28,7 +28,7 @@ jobs:
           pip install .
       - name: Install RisingWave
         run: curl -L https://risingwave.com/sh | sh
-      - name: Run RisingWave
+      - name: Run integration tests
         run: |
           ./risingwave 2>stderr.log &
           while :; do
@@ -36,5 +36,4 @@ jobs:
             [[ $ready -gt 0 ]] && break
             sleep 1
           done
-      - name: Run integration tests
-        run: pytest
+          pytest
