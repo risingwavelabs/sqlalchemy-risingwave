@@ -16,7 +16,7 @@ For psycopg2 support you must install either:
 
 (The binary package is a practical choice for development and testing but in
 production it is advised to use the package built from sources.)
- 
+
 ## Install
 Install via [PyPI](https://pypi.org/project/sqlalchemy-risingwave/)
 ```
@@ -50,11 +50,7 @@ pytest # to run the test
 ## Ref
 
 - [Sqlalchemy dialects doc](https://github.com/sqlalchemy/sqlalchemy/blob/main/README.dialects.rst)
-
 - [CocoroachDB sqlalchemy](https://github.com/cockroachdb/sqlalchemy-cockroachdb)
-
 - [RisingWave: Open-Source Streaming Database](https://www.risingwave.com/database/)
-
 - [RisingWave Cloud](https://www.risingwave.com/cloud/)
-
 - [What is RisingWave?](https://docs.risingwave.com/docs/current/intro/)

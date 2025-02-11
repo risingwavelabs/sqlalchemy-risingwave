@@ -7,6 +7,7 @@ from sqlalchemy.util import warn
 
 from sqlalchemy import util
 import sqlalchemy.types as sqltypes
+import sqlalchemy.exc as exc
 
 _type_map = {
     "bool": sqltypes.BOOLEAN,  # DataType::Boolean
@@ -84,7 +85,9 @@ class RisingWaveDialect(PGDialect_psycopg2):
         else:
             source_sql += " WHERE rw_catalog.rw_schemas.name <> 'rw_catalog' and rw_catalog.rw_schemas.name <> 'pg_catalog' and rw_catalog.rw_schemas.name <> 'information_schema'"
         sources = conn.execute(text(source_sql))
-        return [view.viewname for view in views] + [source.source_name for source in sources]
+        return [view.viewname for view in views] + [
+            source.source_name for source in sources
+        ]
 
     def has_table(self, conn, table, schema=None, **kw):
         return any(t == table for t in self.get_table_names(conn, schema=schema))
@@ -96,7 +99,10 @@ class RisingWaveDialect(PGDialect_psycopg2):
         )
         rows = conn.execute(
             text(sql),
-            {"table_schema": schema or self.default_schema_name, "table_name": table_name},
+            {
+                "table_schema": schema or self.default_schema_name,
+                "table_name": table_name,
+            },
         )
 
         res = []
@@ -149,8 +155,8 @@ class RisingWaveDialect(PGDialect_psycopg2):
             schema_where_clause = "n.nspname = :schema"
         else:
             schema_where_clause = "pg_catalog.pg_table_is_visible(r.id)"
-        query = (
-                """
+        sql = (
+            """
                 SELECT r.id as oid
                 FROM rw_catalog.rw_relations r
                 LEFT JOIN pg_catalog.pg_namespace n ON n.oid = r.schema_id
@@ -158,18 +164,12 @@ class RisingWaveDialect(PGDialect_psycopg2):
                 AND r.name = :table_name AND r.relation_type in
                 ('table', 'system table', 'view', 'materialized view', 'source', 'sink')
             """
-                % schema_where_clause
+            % schema_where_clause
         )
-        # Since we're binding to unicode, table_name and schema_name must be
-        # unicode.
-        table_name = util.text_type(table_name)
-        if schema is not None:
-            schema = util.text_type(schema)
-        s = text(query).bindparams(table_name=sqltypes.Unicode)
-        s = s.columns(oid=sqltypes.Integer)
-        if schema:
-            s = s.bindparams(sql.bindparam("schema", type_=sqltypes.Unicode))
-        c = connection.execute(s, dict(table_name=table_name, schema=schema))
+        s = text(sql).columns(oid=sqltypes.Integer)
+        c = connection.execute(
+            s, {"table_name": str(table_name), "schema": str(schema)}
+        )
         table_oid = c.scalar()
         if table_oid is None:
             raise exc.NoSuchTableError(table_name)
@@ -210,10 +210,15 @@ class RisingWaveDialect(PGDialect_psycopg2):
         return res
 
     def get_foreign_keys_v1(self, conn, table_name, schema=None, **kw):
-        raise []
+        return []
 
     def get_foreign_keys(
-            self, connection, table_name, schema=None, postgresql_ignore_search_path=False, **kw
+        self,
+        connection,
+        table_name,
+        schema=None,
+        postgresql_ignore_search_path=False,
+        **kw,
     ):
         return []
 
