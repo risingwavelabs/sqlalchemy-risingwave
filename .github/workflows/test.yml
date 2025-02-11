@@ -27,7 +27,7 @@ jobs:
           pip install -r test-requirements.txt
           pip install .
       - name: Install RisingWave
-        run: curl -L https://risingwave.com/sh | sh
+        run: curl -L https://raw.githubusercontent.com/risingwavelabs/risingwave/refs/heads/main/scripts/install/install-risingwave.sh | sh
       - name: Run integration tests
         run: |
           ./risingwave >/dev/null 2>stderr.log &
