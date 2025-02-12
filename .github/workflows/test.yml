@@ -30,6 +30,6 @@ jobs:
         run: curl -L https://risingwave.com/sh | sh
       - name: Run integration tests
         run: |
-          ./risingwave &
+          ./risingwave >stdout.log 2>stderr.log &
           sleep 3 # wait for RisingWave ready
           pytest
