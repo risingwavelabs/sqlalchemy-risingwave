@@ -71,12 +71,18 @@ class RisingWaveDialect(PGDialect_psycopg2):
         return [row.tablename for row in rows]
 
     def get_view_names(self, conn, schema=None, **kw):
-        sql = "SELECT viewname FROM pg_views"
-        if schema is not None:
-            sql += f" WHERE schemaname = '{schema or self.default_schema_name}'"
-        else:
-            sql += " WHERE schemaname <> 'rw_catalog' and schemaname <> 'pg_catalog' and schemaname <> 'information_schema'"
-        views = conn.execute(text(sql))
+        base_queries = [
+            "SELECT viewname FROM pg_views",
+            "SELECT matviewname as viewname FROM pg_matviews",
+        ]
+        queries = []
+        for sql in base_queries:
+            if schema is not None:
+                sql += f" WHERE schemaname = '{schema or self.default_schema_name}'"
+            else:
+                sql += " WHERE schemaname <> 'rw_catalog' and schemaname <> 'pg_catalog' and schemaname <> 'information_schema'"
+            queries.append(sql)
+        views = conn.execute(text(" UNION ".join(queries)))
 
         # As sqlalchmey has no support for Sources, we categorize as view temporarily.
         source_sql = f"SELECT rw_catalog.rw_sources.name as source_name FROM rw_catalog.rw_sources JOIN rw_catalog.rw_schemas ON rw_catalog.rw_sources.schema_id = rw_catalog.rw_schemas.id"
@@ -85,6 +91,7 @@ class RisingWaveDialect(PGDialect_psycopg2):
         else:
             source_sql += " WHERE rw_catalog.rw_schemas.name <> 'rw_catalog' and rw_catalog.rw_schemas.name <> 'pg_catalog' and rw_catalog.rw_schemas.name <> 'information_schema'"
         sources = conn.execute(text(source_sql))
+
         return [view.viewname for view in views] + [
             source.source_name for source in sources
         ]

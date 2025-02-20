@@ -26,32 +26,31 @@ class SchemaTest(fixtures.TestBase):
 
     def test_get_indexes(self):
         with testing.db.begin() as conn:
-            conn.execute(text("CREATE TABLE three_columns (id1 INT, id2 INT, id3 INT)"))
-            conn.execute(
-                text(
-                    "CREATE INDEX three_columns_idx ON three_columns(id2) INCLUDE(id1)"
-                )
-            )
+            conn.execute(text("CREATE TABLE t (id1 INT, id2 INT, id3 INT)"))
+            conn.execute(text("CREATE INDEX idx ON t(id2) INCLUDE(id1)"))
 
             insp = inspect(testing.db)
-            indexes = insp.get_indexes("three_columns")
+            indexes = insp.get_indexes("t")
 
             assert len(indexes) == 1
-            assert indexes[0]["name"] == "three_columns_idx"
+            assert indexes[0]["name"] == "idx"
             assert indexes[0]["column_names"] == ["id2", "id1"]
 
-            conn.execute(text("DROP TABLE three_columns"))
+            conn.execute(text("DROP TABLE t"))
 
     def test_get_view_names(self):
         with testing.db.begin() as conn:
-            conn.execute(text("CREATE TABLE three_columns (id1 INT, id2 INT, id3 INT)"))
-            conn.execute(text("CREATE VIEW three_view AS SELECT * from three_columns"))
+            conn.execute(text("CREATE TABLE t (id1 INT, id2 INT, id3 INT)"))
+            conn.execute(text("CREATE VIEW v AS SELECT * from t"))
+            conn.execute(text("CREATE MATERIALIZED VIEW mv AS SELECT * FROM t"))
 
             insp = inspect(testing.db)
             views = insp.get_view_names()
 
-            assert len(views) == 1
-            assert views[0] == "three_view"
+            assert len(views) == 2
+            assert "v" in views
+            assert "mv" in views
 
-            conn.execute(text("DROP VIEW three_view"))
-            conn.execute(text("DROP TABLE three_columns"))
+            conn.execute(text("DROP MATERIALIZED VIEW mv"))
+            conn.execute(text("DROP VIEW v"))
+            conn.execute(text("DROP TABLE t"))
