@@ -70,13 +70,24 @@ class RisingWaveDialect(PGDialect_psycopg2):
         rows = conn.execute(text(sql))
         return [row.tablename for row in rows]
 
-    def get_view_names(self, conn, schema=None, **kw):
+    def get_view_names(self, conn, schema=None, include=("plain", "materialized"),  **kw):
         base_queries = [
             "SELECT viewname FROM pg_views",
             "SELECT matviewname as viewname FROM pg_matviews",
         ]
+        if not include:
+            raise ValueError(
+                "empty include, needs to be a sequence containing "
+                "one or both of 'plain' and 'materialized'"
+            )
+        include_queries = []
+        if "plain" in include:
+            include_queries.append(base_queries[0])
+        if "materialized" in include:
+            include_queries.append(base_queries[1])
+
         queries = []
-        for sql in base_queries:
+        for sql in include_queries:
             if schema is not None:
                 sql += f" WHERE schemaname = '{schema or self.default_schema_name}'"
             else:
@@ -151,6 +162,7 @@ class RisingWaveDialect(PGDialect_psycopg2):
             column_info = dict(
                 name=name,
                 type=type_class,
+                nullable = True,
             )
 
             res.append(column_info)
