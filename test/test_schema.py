@@ -51,6 +51,18 @@ class SchemaTest(fixtures.TestBase):
             assert "v" in views
             assert "mv" in views
 
+            insp = inspect(testing.db)
+            views = insp.get_view_names(include = ("plain"))
+
+            assert len(views) == 1
+            assert "v" in views
+
+            insp = inspect(testing.db)
+            views = insp.get_view_names(include = ("materialized"))
+
+            assert len(views) == 1
+            assert "mv" in views
+
             conn.execute(text("DROP MATERIALIZED VIEW mv"))
             conn.execute(text("DROP VIEW v"))
             conn.execute(text("DROP TABLE t"))

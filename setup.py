@@ -36,7 +36,7 @@ setup(
     },
     packages=find_packages(include=["sqlalchemy_risingwave"]),
     include_package_data=True,
-    install_requires=["SQLAlchemy>=2.0,<2.1"],
+    install_requires=["SQLAlchemy>=1.4,<2.0"],
     zip_safe=False,
     # # Do not support dialects now.
     entry_points={
