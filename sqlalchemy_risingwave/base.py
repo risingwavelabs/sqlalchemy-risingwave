@@ -61,16 +61,18 @@ class RisingWaveDialect(PGDialect_psycopg2):
     def _get_server_version_info(self, conn):
         return (9, 5, 0)
 
-    def get_table_names(self, conn, schema=None, **kw):
+    def get_table_names(self, connection, schema=None, **kw):
         sql = "SELECT tablename FROM pg_tables"
         if schema is not None:
             sql += f" WHERE schemaname = '{schema or self.default_schema_name}'"
         else:
             sql += " WHERE schemaname <> 'rw_catalog' and schemaname <> 'pg_catalog' and schemaname <> 'information_schema'"
-        rows = conn.execute(text(sql))
+        rows = connection.execute(text(sql))
         return [row.tablename for row in rows]
 
-    def get_view_names(self, conn, schema=None, include=("plain", "materialized"),  **kw):
+    def get_view_names(
+        self, connection, schema=None, include=("plain", "materialized"), **kw
+    ):
         base_queries = [
             "SELECT viewname FROM pg_views",
             "SELECT matviewname as viewname FROM pg_matviews",
@@ -93,7 +95,7 @@ class RisingWaveDialect(PGDialect_psycopg2):
             else:
                 sql += " WHERE schemaname <> 'rw_catalog' and schemaname <> 'pg_catalog' and schemaname <> 'information_schema'"
             queries.append(sql)
-        views = conn.execute(text(" UNION ".join(queries)))
+        views = connection.execute(text(" UNION ".join(queries)))
 
         # As sqlalchmey has no support for Sources, we categorize as view temporarily.
         source_sql = f"SELECT rw_catalog.rw_sources.name as source_name FROM rw_catalog.rw_sources JOIN rw_catalog.rw_schemas ON rw_catalog.rw_sources.schema_id = rw_catalog.rw_schemas.id"
@@ -101,21 +103,21 @@ class RisingWaveDialect(PGDialect_psycopg2):
             source_sql += f" WHERE rw_catalog.rw_schemas.name = '{schema or self.default_schema_name}'"
         else:
             source_sql += " WHERE rw_catalog.rw_schemas.name <> 'rw_catalog' and rw_catalog.rw_schemas.name <> 'pg_catalog' and rw_catalog.rw_schemas.name <> 'information_schema'"
-        sources = conn.execute(text(source_sql))
+        sources = connection.execute(text(source_sql))
 
         return [view.viewname for view in views] + [
             source.source_name for source in sources
         ]
 
-    def has_table(self, conn, table, schema=None, **kw):
-        return any(t == table for t in self.get_table_names(conn, schema=schema))
+    def has_table(self, connection, table, schema=None, **kw):
+        return any(t == table for t in self.get_table_names(connection, schema=schema))
 
-    def get_columns(self, conn, table_name, schema=None, **kw):
+    def get_columns(self, connection, table_name, schema=None, **kw):
         sql = (
             "SELECT column_name, data_type FROM information_schema.columns WHERE "
             "table_schema = :table_schema AND table_name = :table_name"
         )
-        rows = conn.execute(
+        rows = connection.execute(
             text(sql),
             {
                 "table_schema": schema or self.default_schema_name,
@@ -162,7 +164,7 @@ class RisingWaveDialect(PGDialect_psycopg2):
             column_info = dict(
                 name=name,
                 type=type_class,
-                nullable = True,
+                nullable=True,
             )
 
             res.append(column_info)
@@ -194,9 +196,9 @@ class RisingWaveDialect(PGDialect_psycopg2):
             raise exc.NoSuchTableError(table_name)
         return table_oid
 
-    def get_indexes(self, conn, table_name, schema=None, **kw):
+    def get_indexes(self, connection, table_name, schema=None, **kw):
         table_oid = self.get_table_oid(
-            conn, table_name, schema, info_cache=kw.get("info_cache")
+            connection, table_name, schema, info_cache=kw.get("info_cache")
         )
 
         sql = (
@@ -206,7 +208,7 @@ class RisingWaveDialect(PGDialect_psycopg2):
             "join pg_catalog.pg_attribute a on t.oid = a.attrelid and a.attnum = ANY(ix.indkey)"
             "where t.oid = :table_oid"
         )
-        rows = conn.execute(
+        rows = connection.execute(
             text(sql),
             {"table_oid": table_oid},
         )
@@ -228,7 +230,7 @@ class RisingWaveDialect(PGDialect_psycopg2):
             )
         return res
 
-    def get_foreign_keys_v1(self, conn, table_name, schema=None, **kw):
+    def get_foreign_keys_v1(self, connection, table_name, schema=None, **kw):
         return []
 
     def get_foreign_keys(
@@ -241,14 +243,14 @@ class RisingWaveDialect(PGDialect_psycopg2):
     ):
         return []
 
-    def get_pk_constraint(self, conn, table_name, schema=None, **kw):
+    def get_pk_constraint(self, connection, table_name, schema=None, **kw):
         # TODO: Fill in real implementation to make get pk constraint work.
         return dict()
 
-    def get_unique_constraints(self, conn, table_name, schema=None, **kw):
+    def get_unique_constraints(self, connection, table_name, schema=None, **kw):
         return []
 
-    def get_check_constraints(self, conn, table_name, schema=None, **kw):
+    def get_check_constraints(self, connection, table_name, schema=None, **kw):
         return []
 
     def do_rollback_to_savepoint(self, connection, name):

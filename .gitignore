@@ -19,4 +19,5 @@ test.cfg
 .idea/
 
 # virtualenv
-sqlalchemy-risingwave/venv
+venv
+.venv
