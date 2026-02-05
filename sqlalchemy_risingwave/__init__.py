@@ -1,6 +1,6 @@
 from sqlalchemy.dialects import registry as _registry
 
-__version__ = "1.1.1"
+__version__ = "1.2.0"
 
 _registry.register(
     "risingwave.psycopg2",
