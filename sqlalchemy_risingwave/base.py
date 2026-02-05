@@ -45,6 +45,38 @@ _type_map = {
 class RisingWaveDialect(PGDialect_psycopg2):
     name = "risingwave"
 
+    def create_connect_args(self, url):
+        """Create connection arguments, handling RisingWave Cloud tenant parameter.
+
+        RisingWave Cloud requires a tenant identifier for routing connections.
+        This can be specified as a `tenant` query parameter in the connection URL,
+        which will be automatically converted to the PostgreSQL `options` format
+        that RisingWave Cloud expects.
+
+        Example:
+            risingwave://user:pass@host:4566/db?tenant=rwc-xxx
+
+        This will be converted to:
+            options=--tenant=rwc-xxx
+
+        See https://docs.risingwave.com/cloud/connection-errors for more details
+        on RisingWave Cloud connection methods.
+        """
+        # Get the default connection args from parent
+        cargs, cparams = super().create_connect_args(url)
+
+        # Handle tenant parameter if present
+        if "tenant" in cparams:
+            tenant = cparams.pop("tenant")
+            # Merge tenant into options parameter
+            existing_options = cparams.get("options", "")
+            if existing_options:
+                cparams["options"] = f"{existing_options} --tenant={tenant}"
+            else:
+                cparams["options"] = f"--tenant={tenant}"
+
+        return cargs, cparams
+
     # Do not override connect
     def __init__(self, *args, **kwargs):
         if kwargs.get("use_native_hstore", False):
