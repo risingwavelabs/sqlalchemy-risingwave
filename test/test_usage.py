@@ -81,3 +81,25 @@ class UsageTest(fixtures.TestBase):
         assert inspector.has_table("sqlalchemy_rw_usage")
         columns = inspector.get_columns("sqlalchemy_rw_usage")
         assert [column["name"] for column in columns] == ["id", "name"]
+
+    def test_serial_keyword_rewritten_to_integer(self):
+        # When ``autoincrement`` is the SQLAlchemy default (i.e. an
+        # ``Integer`` primary key without ``autoincrement=False``), the
+        # PG parent compiler emits ``SERIAL``. RisingWave rejects that
+        # DDL; the dialect must rewrite the keyword to ``INTEGER`` so
+        # CREATE TABLE actually succeeds. Most of the upstream
+        # ``sqlalchemy.testing.suite`` fixtures rely on this implicit
+        # autoincrement shape, so this is the gate that lets the
+        # compliance suite progress past fixture setup.
+        metadata = MetaData()
+        Table(
+            "sqlalchemy_rw_usage",
+            metadata,
+            Column("id", Integer, primary_key=True),  # implicit autoincrement
+            Column("name", String),
+        )
+
+        metadata.create_all(testing.db)
+
+        inspector = inspect(testing.db)
+        assert inspector.has_table("sqlalchemy_rw_usage")
