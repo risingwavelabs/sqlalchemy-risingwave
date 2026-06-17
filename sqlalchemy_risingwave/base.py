@@ -160,12 +160,22 @@ logger = logging.getLogger(__name__)
 _warned_pg_cancel_probe = False
 
 
-class RisingWaveDialect(PGDialect_psycopg2):
+class _RisingWaveCommon:
+    """Driver-agnostic RisingWave dialect overrides.
+
+    Composed with both ``PGDialect_psycopg2`` (sync, psycopg2) and
+    ``PGDialect_psycopg`` (sync + async, psycopg3) via MRO so the
+    RisingWave-specific behaviour (compilers, capability flags, reflection
+    methods, Superset shim) is shared across drivers. Concrete driver
+    bindings stay in the per-driver subclasses below or in sibling modules.
+    """
+
     name = "risingwave"
     ddl_compiler = RisingWaveDDLCompiler
     type_compiler = RisingWaveTypeCompiler
     supports_native_enum = False
     supports_native_uuid = False
+    supports_statement_cache = True
 
     _PG_BACKEND_PID_SQL = re.compile(
         r"^\s*SELECT\s+pg_backend_pid\(\)\s*;?\s*$",
@@ -231,16 +241,6 @@ class RisingWaveDialect(PGDialect_psycopg2):
                 cparams["options"] = f"--tenant={tenant}"
 
         return cargs, cparams
-
-    # Do not override connect
-    def __init__(self, *args, **kwargs):
-        if kwargs.get("use_native_hstore", False):
-            raise NotImplementedError("use_native_hstore is not supported")
-        if kwargs.get("server_side_cursors", False):
-            raise NotImplementedError("server_side_cursors is not supported")
-        kwargs["use_native_hstore"] = False
-        kwargs["server_side_cursors"] = False
-        super().__init__(*args, **kwargs)
 
     def initialize(self, connection):
         super(PGDialect, self).initialize(connection)
@@ -640,3 +640,24 @@ class RisingWaveDialect(PGDialect_psycopg2):
 
     def get_default_isolation_level(self, dbapi_conn):
         return self.get_isolation_level(dbapi_conn)
+
+
+class RisingWaveDialect(_RisingWaveCommon, PGDialect_psycopg2):
+    """psycopg2 sync RisingWave dialect.
+
+    This is the original concrete dialect class exposed via the
+    ``risingwave+psycopg2://`` URL, and the import name ``RisingWaveDialect``
+    that ``sqlalchemy_risingwave.psycopg2`` and external code already rely on.
+    The driver-specific kwargs guarded in ``__init__`` are psycopg2 features
+    RisingWave does not implement; the psycopg3 dialect lives in a sibling
+    module and does not share those kwargs.
+    """
+
+    def __init__(self, *args, **kwargs):
+        if kwargs.get("use_native_hstore", False):
+            raise NotImplementedError("use_native_hstore is not supported")
+        if kwargs.get("server_side_cursors", False):
+            raise NotImplementedError("server_side_cursors is not supported")
+        kwargs["use_native_hstore"] = False
+        kwargs["server_side_cursors"] = False
+        super().__init__(*args, **kwargs)
