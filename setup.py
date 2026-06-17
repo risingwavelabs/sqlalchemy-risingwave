@@ -37,12 +37,22 @@ setup(
     include_package_data=True,
     python_requires=">=3.10",
     install_requires=["SQLAlchemy>=2.0,<2.1"],
+    extras_require={
+        # psycopg3 is the upstream-recommended PostgreSQL driver and the
+        # path used by ``risingwave+psycopg://`` synchronous engines. The
+        # asynchronous dialect that lets applications opt into
+        # ``create_async_engine`` for RisingWave is tracked separately in
+        # issue #57 and is not part of this release. ``psycopg`` imports
+        # lazily, so this dependency stays optional — existing
+        # psycopg2-only users are unaffected.
+        "psycopg3": ["psycopg[binary]>=3.1"],
+    },
     zip_safe=False,
-    # # Do not support dialects now.
     entry_points={
         "sqlalchemy.dialects": [
             "risingwave = sqlalchemy_risingwave.psycopg2:RisingWaveDialect_psycopg2",
             "risingwave.psycopg2 = sqlalchemy_risingwave.psycopg2:RisingWaveDialect_psycopg2",
+            "risingwave.psycopg = sqlalchemy_risingwave.psycopg:RisingWaveDialect_psycopg",
         ],
     },
 )

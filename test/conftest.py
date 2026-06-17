@@ -13,6 +13,12 @@ registry.register(
     "RisingWaveDialect_psycopg2",
 )
 
+registry.register(
+    "risingwave.psycopg",
+    "sqlalchemy_risingwave.psycopg",
+    "RisingWaveDialect_psycopg",
+)
+
 pytest.register_assert_rewrite("sqlalchemy.testing.assertions")
 
 from sqlalchemy.testing.plugin.pytestplugin import *  # noqa

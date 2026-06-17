@@ -8,9 +8,18 @@ _registry.register(
     "RisingWaveDialect_psycopg2",
 )
 
-# asyncpg is not supported yet
-# _registry.register(
-#     "risingwave.asyncpg",
-#     "sqlalchemy_risingwave.asyncpg",
-#     "RisingWaveDialect_asyncpg",
-# )
+# psycopg3 driver, synchronous only in this release.
+# ``create_engine("risingwave+psycopg://...")`` is supported.
+# ``create_async_engine("risingwave+psycopg://...")`` is intentionally
+# rejected at the dialect layer because SQLAlchemy's upstream
+# ``PGDialect_psycopg.get_async_dialect_cls`` returns an async class with
+# no RisingWave overrides; the async dialect is tracked in
+# https://github.com/risingwavelabs/sqlalchemy-risingwave/issues/57.
+_registry.register(
+    "risingwave.psycopg",
+    "sqlalchemy_risingwave.psycopg",
+    "RisingWaveDialect_psycopg",
+)
+
+# asyncpg driver is not implemented; see the same issue #57 for the
+# async support roadmap.
