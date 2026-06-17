@@ -27,6 +27,7 @@ class Requirements(SuiteRequirementsSQLA):
     cross_schema_fk_reflection = exclusions.closed()
     self_referential_foreign_keys = exclusions.closed()
     foreign_key_constraint_reflection = exclusions.closed()
+    unique_constraint_reflection = exclusions.closed()
 
     # We don't do implicit casts.
     date_coerces_from_datetime = exclusions.closed()
