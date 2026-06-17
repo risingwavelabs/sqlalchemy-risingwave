@@ -29,6 +29,19 @@ class UsageTest(fixtures.TestBase):
 
         assert (row.id, row.name) == (1, "alpha")
 
+    def test_postgres_cancel_probe_degrades_to_noop(self):
+        with testing.db.connect() as conn:
+            backend_pid = conn.execute(text("SELECT pg_backend_pid()")).scalar()
+            terminated = conn.execute(
+                text(
+                    "SELECT pg_terminate_backend(pid) "
+                    "FROM pg_stat_activity WHERE pid='0'"
+                )
+            ).scalar()
+
+        assert backend_pid == 0
+        assert terminated is False
+
     def test_sqlalchemy_core_ddl_and_reflection_round_trip(self):
         metadata = MetaData()
         Table(

@@ -1,3 +1,4 @@
+import logging
 import re
 
 from sqlalchemy.dialects.postgresql.base import PGDialect
@@ -42,9 +43,45 @@ _type_map = {
 
 # Unsupported: Int256, Serial, Struct, List
 
+logger = logging.getLogger(__name__)
+_warned_pg_cancel_probe = False
+
 
 class RisingWaveDialect(PGDialect_psycopg2):
     name = "risingwave"
+
+    _PG_BACKEND_PID_SQL = re.compile(
+        r"^\s*SELECT\s+pg_backend_pid\(\)\s*;?\s*$",
+        re.IGNORECASE,
+    )
+    _PG_TERMINATE_BACKEND_SQL = re.compile(
+        r"^\s*SELECT\s+pg_terminate_backend\(\s*pid\s*\)\s+"
+        r"FROM\s+pg_stat_activity\s+WHERE\s+pid\s*=\s*['\"]?\d+['\"]?\s*;?\s*$",
+        re.IGNORECASE,
+    )
+
+    def do_execute(self, cursor, statement, parameters, context=None):
+        global _warned_pg_cancel_probe
+        # Superset's RisingWave spec inherits PostgreSQL cancel-query logic,
+        # which probes pg_backend_pid() and pg_terminate_backend(...). RisingWave
+        # does not expose PostgreSQL backend processes, so report a stable dummy
+        # PID and a failed termination instead of raising "function not found".
+        # This keeps query cancellation explicitly unsupported while avoiding a
+        # hard error in clients that merely inherit PostgreSQL probes.
+        if self._PG_BACKEND_PID_SQL.match(statement):
+            if not _warned_pg_cancel_probe:
+                logger.warning(
+                    "RisingWave dialect intercepted PostgreSQL cancellation "
+                    "probe pg_backend_pid(). Returning dummy PID 0; query "
+                    "cancellation is not supported."
+                )
+                _warned_pg_cancel_probe = True
+            cursor.execute("SELECT 0")
+            return
+        if self._PG_TERMINATE_BACKEND_SQL.match(statement):
+            cursor.execute("SELECT false")
+            return
+        super().do_execute(cursor, statement, parameters, context=context)
 
     def create_connect_args(self, url):
         """Create connection arguments, handling RisingWave Cloud tenant parameter.
