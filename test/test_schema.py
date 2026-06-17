@@ -20,7 +20,7 @@ class SchemaTest(fixtures.TestBase):
         Table("users", self.meta, autoload_with=testing.db, schema="public")
 
     def test_has_table(self):
-        with testing.db.begin() as conn:
+        with testing.db.begin():
             insp = inspect(testing.db)
             assert insp.has_table(table_name="users", schema="public")
 
@@ -46,10 +46,11 @@ class SchemaTest(fixtures.TestBase):
 
             insp = inspect(testing.db)
             views = insp.get_view_names()
+            materialized_views = insp.get_materialized_view_names()
 
-            assert len(views) == 2
+            assert len(views) == 1
             assert "v" in views
-            assert "mv" in views
+            assert materialized_views == ["mv"]
 
             conn.execute(text("DROP MATERIALIZED VIEW mv"))
             conn.execute(text("DROP VIEW v"))

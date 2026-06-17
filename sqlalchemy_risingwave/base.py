@@ -3,9 +3,9 @@ import re
 from sqlalchemy.dialects.postgresql.base import PGDialect
 from sqlalchemy.dialects.postgresql.psycopg2 import PGDialect_psycopg2
 from sqlalchemy import text
+from sqlalchemy.engine import reflection
 from sqlalchemy.util import warn
 
-from sqlalchemy import util
 import sqlalchemy.types as sqltypes
 import sqlalchemy.exc as exc
 
@@ -93,47 +93,85 @@ class RisingWaveDialect(PGDialect_psycopg2):
     def _get_server_version_info(self, conn):
         return (9, 5, 0)
 
+    @reflection.cache
     def get_table_names(self, conn, schema=None, **kw):
         sql = "SELECT tablename FROM pg_tables"
         if schema is not None:
             sql += f" WHERE schemaname = '{schema or self.default_schema_name}'"
         else:
-            sql += " WHERE schemaname <> 'rw_catalog' and schemaname <> 'pg_catalog' and schemaname <> 'information_schema'"
+            sql += (
+                " WHERE schemaname <> 'rw_catalog'"
+                " and schemaname <> 'pg_catalog'"
+                " and schemaname <> 'information_schema'"
+            )
         rows = conn.execute(text(sql))
         return [row.tablename for row in rows]
 
+    @reflection.cache
     def get_view_names(self, conn, schema=None, **kw):
         base_queries = [
             "SELECT viewname FROM pg_views",
-            "SELECT matviewname as viewname FROM pg_matviews",
         ]
         queries = []
         for sql in base_queries:
             if schema is not None:
                 sql += f" WHERE schemaname = '{schema or self.default_schema_name}'"
             else:
-                sql += " WHERE schemaname <> 'rw_catalog' and schemaname <> 'pg_catalog' and schemaname <> 'information_schema'"
+                sql += (
+                    " WHERE schemaname <> 'rw_catalog'"
+                    " and schemaname <> 'pg_catalog'"
+                    " and schemaname <> 'information_schema'"
+                )
             queries.append(sql)
         views = conn.execute(text(" UNION ".join(queries)))
 
         # As sqlalchmey has no support for Sources, we categorize as view temporarily.
-        source_sql = f"SELECT rw_catalog.rw_sources.name as source_name FROM rw_catalog.rw_sources JOIN rw_catalog.rw_schemas ON rw_catalog.rw_sources.schema_id = rw_catalog.rw_schemas.id"
+        source_sql = (
+            "SELECT rw_catalog.rw_sources.name as source_name"
+            " FROM rw_catalog.rw_sources"
+            " JOIN rw_catalog.rw_schemas"
+            " ON rw_catalog.rw_sources.schema_id = rw_catalog.rw_schemas.id"
+        )
         if schema is not None:
-            source_sql += f" WHERE rw_catalog.rw_schemas.name = '{schema or self.default_schema_name}'"
+            source_sql += (
+                " WHERE rw_catalog.rw_schemas.name = "
+                f"'{schema or self.default_schema_name}'"
+            )
         else:
-            source_sql += " WHERE rw_catalog.rw_schemas.name <> 'rw_catalog' and rw_catalog.rw_schemas.name <> 'pg_catalog' and rw_catalog.rw_schemas.name <> 'information_schema'"
+            source_sql += (
+                " WHERE rw_catalog.rw_schemas.name <> 'rw_catalog'"
+                " and rw_catalog.rw_schemas.name <> 'pg_catalog'"
+                " and rw_catalog.rw_schemas.name <> 'information_schema'"
+            )
         sources = conn.execute(text(source_sql))
 
         return [view.viewname for view in views] + [
             source.source_name for source in sources
         ]
 
-    def has_table(self, conn, table, schema=None, **kw):
-        return any(t == table for t in self.get_table_names(conn, schema=schema))
+    @reflection.cache
+    def get_materialized_view_names(self, conn, schema=None, **kw):
+        sql = "SELECT matviewname FROM pg_matviews"
+        if schema is not None:
+            sql += f" WHERE schemaname = '{schema or self.default_schema_name}'"
+        else:
+            sql += (
+                " WHERE schemaname <> 'rw_catalog'"
+                " and schemaname <> 'pg_catalog'"
+                " and schemaname <> 'information_schema'"
+            )
+        rows = conn.execute(text(sql))
+        return [row.matviewname for row in rows]
 
+    @reflection.cache
+    def has_table(self, conn, table_name, schema=None, **kw):
+        return any(t == table_name for t in self.get_table_names(conn, schema=schema))
+
+    @reflection.cache
     def get_columns(self, conn, table_name, schema=None, **kw):
         sql = (
-            "SELECT column_name, data_type FROM information_schema.columns WHERE "
+            "SELECT column_name, data_type, is_nullable, column_default"
+            " FROM information_schema.columns WHERE "
             "table_schema = :table_schema AND table_name = :table_name"
         )
         rows = conn.execute(
@@ -183,6 +221,10 @@ class RisingWaveDialect(PGDialect_psycopg2):
             column_info = dict(
                 name=name,
                 type=type_class,
+                nullable=row.is_nullable == "YES",
+                default=row.column_default,
+                autoincrement=False,
+                comment=None,
             )
 
             res.append(column_info)
@@ -214,6 +256,7 @@ class RisingWaveDialect(PGDialect_psycopg2):
             raise exc.NoSuchTableError(table_name)
         return table_oid
 
+    @reflection.cache
     def get_indexes(self, conn, table_name, schema=None, **kw):
         table_oid = self.get_table_oid(
             conn, table_name, schema, info_cache=kw.get("info_cache")
@@ -248,9 +291,106 @@ class RisingWaveDialect(PGDialect_psycopg2):
             )
         return res
 
+    def get_multi_columns(self, connection, schema, filter_names, scope, kind, **kw):
+        return self._default_multi_reflect(
+            self.get_columns,
+            connection,
+            kind=kind,
+            schema=schema,
+            filter_names=filter_names,
+            scope=scope,
+            **kw,
+        )
+
+    def get_multi_indexes(self, connection, schema, filter_names, scope, kind, **kw):
+        return self._default_multi_reflect(
+            self.get_indexes,
+            connection,
+            kind=kind,
+            schema=schema,
+            filter_names=filter_names,
+            scope=scope,
+            **kw,
+        )
+
+    def get_multi_pk_constraint(
+        self, connection, schema, filter_names, scope, kind, **kw
+    ):
+        return self._default_multi_reflect(
+            self.get_pk_constraint,
+            connection,
+            kind=kind,
+            schema=schema,
+            filter_names=filter_names,
+            scope=scope,
+            **kw,
+        )
+
+    def get_multi_foreign_keys(
+        self,
+        connection,
+        schema,
+        filter_names,
+        scope,
+        kind,
+        postgresql_ignore_search_path=False,
+        **kw,
+    ):
+        return self._default_multi_reflect(
+            self.get_foreign_keys,
+            connection,
+            kind=kind,
+            schema=schema,
+            filter_names=filter_names,
+            scope=scope,
+            postgresql_ignore_search_path=postgresql_ignore_search_path,
+            **kw,
+        )
+
+    def get_multi_unique_constraints(
+        self, connection, schema, filter_names, scope, kind, **kw
+    ):
+        return self._default_multi_reflect(
+            self.get_unique_constraints,
+            connection,
+            kind=kind,
+            schema=schema,
+            filter_names=filter_names,
+            scope=scope,
+            **kw,
+        )
+
+    def get_multi_check_constraints(
+        self, connection, schema, filter_names, scope, kind, **kw
+    ):
+        return self._default_multi_reflect(
+            self.get_check_constraints,
+            connection,
+            kind=kind,
+            schema=schema,
+            filter_names=filter_names,
+            scope=scope,
+            **kw,
+        )
+
+    def get_multi_table_comment(
+        self, connection, schema, filter_names, scope, kind, **kw
+    ):
+        return self._default_multi_reflect(
+            self.get_table_comment,
+            connection,
+            kind=kind,
+            schema=schema,
+            filter_names=filter_names,
+            scope=scope,
+            **kw,
+        )
+
+    @reflection.cache
     def get_foreign_keys_v1(self, conn, table_name, schema=None, **kw):
         return []
 
+    @reflection.cache
     def get_foreign_keys(
         self,
         connection,
@@ -261,13 +401,16 @@ class RisingWaveDialect(PGDialect_psycopg2):
     ):
         return []
 
+    @reflection.cache
     def get_pk_constraint(self, conn, table_name, schema=None, **kw):
         # TODO: Fill in real implementation to make get pk constraint work.
         return dict()
 
+    @reflection.cache
     def get_unique_constraints(self, conn, table_name, schema=None, **kw):
         return []
 
+    @reflection.cache
     def get_check_constraints(self, conn, table_name, schema=None, **kw):
         return []
 
@@ -278,7 +421,7 @@ class RisingWaveDialect(PGDialect_psycopg2):
         raise NotImplementedError
 
     def get_isolation_level(self, connection):
-        return {"default": "SERIALIZABLE", "supported": ["SERIALIZABLE"]}
+        return "SERIALIZABLE"
 
     def get_isolation_level_values(self, dbapi_conn):
         return (
@@ -288,9 +431,10 @@ class RisingWaveDialect(PGDialect_psycopg2):
             "REPEATABLE READ",
         )
 
+    @reflection.cache
     def get_table_comment(self, connection, table_name, schema=None, **kw):
         # TODO: Support table comment
-        return dict()
+        return {"text": None}
 
     def get_default_isolation_level(self, dbapi_conn):
         return self.get_isolation_level(dbapi_conn)
