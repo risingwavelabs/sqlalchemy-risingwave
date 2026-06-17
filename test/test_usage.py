@@ -121,3 +121,58 @@ class UsageTest(fixtures.TestBase):
 
         assert "DEFAULT ' SERIAL'" in ddl
         assert "DEFAULT ' INTEGER'" not in ddl
+
+    def test_type_compiler_strips_pg_length_and_precision_parameters(self):
+        # RisingWave's DDL parser rejects every PG-style parameterised type:
+        # ``CHAR(n)`` / ``VARCHAR(n)`` / ``NUMERIC(p,s)`` / ``DECIMAL(p,s)``.
+        # The compliance suite's fixtures rely heavily on these shapes
+        # (``String(50)``, ``DECIMAL(10, 2)`` etc.), so any test using them
+        # used to fail during CREATE TABLE setup. Confirm at compile time
+        # that the dialect emits the bare keyword form RisingWave accepts.
+        from sqlalchemy import CHAR, DECIMAL, NUMERIC
+
+        metadata = MetaData()
+        table = Table(
+            "sqlalchemy_rw_type_params",
+            metadata,
+            Column("varchar_sized", String(50)),
+            Column("char_sized", CHAR(3)),
+            Column("numeric_sized", NUMERIC(10, 2)),
+            Column("decimal_sized", DECIMAL(8, 4)),
+            Column("varchar_default", String),
+        )
+
+        ddl = str(
+            CreateTable(table).compile(dialect=RisingWaveDialect_psycopg2())
+        )
+
+        for forbidden in ("VARCHAR(50)", "CHAR(3)", "NUMERIC(10, 2)", "DECIMAL(8, 4)"):
+            assert forbidden not in ddl, (
+                f"emitted {forbidden!r}, which RisingWave's DDL parser rejects"
+            )
+        # CHAR is rewritten to VARCHAR per the RisingWave hint message, not
+        # carried through unchanged. Confirm both the bare VARCHAR and the
+        # rewrite of CHAR are present.
+        assert ddl.count("VARCHAR") >= 3
+        assert "CHAR" not in ddl.replace("VARCHAR", "")
+        assert "NUMERIC" in ddl
+        assert "DECIMAL" in ddl
+
+    def test_create_table_with_parameterized_pg_types_runs_on_risingwave(self):
+        metadata = MetaData()
+        Table(
+            "sqlalchemy_rw_usage",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("varchar_sized", String(50)),
+            Column("name", String),
+        )
+
+        # Real RisingWave round trip: with the type-compiler override the
+        # emitted DDL must actually be runnable. Before this change the same
+        # table definition fails with ``expected ',' or ')' after column
+        # definition, found: '('``.
+        metadata.create_all(testing.db)
+
+        inspector = inspect(testing.db)
+        assert inspector.has_table("sqlalchemy_rw_usage")
