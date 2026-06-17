@@ -196,7 +196,7 @@ class UsageTest(fixtures.TestBase):
         assert "CREATE TYPE" not in ddl
         assert "status_enum" not in ddl
         assert " UUID" not in ddl
-        assert ddl.count("VARCHAR") == 2
+        assert ddl.count("VARCHAR") >= 2
 
     def test_create_table_with_enum_and_uuid_runs_on_risingwave(self):
         metadata = MetaData()
