@@ -56,15 +56,17 @@ jobs:
         id: suite
         continue-on-error: true
         run: |
-          # The suite uses pytest's plugin discovery to pick up the
-          # ``Requirements`` class in sqlalchemy_risingwave.requirements;
-          # ``--dburi`` tells the suite which database to drive.
+          # ``compliance/`` re-exports ``sqlalchemy.testing.suite`` and
+          # bootstraps the dialect registration; ``setup.cfg``'s ``[db]``
+          # and ``[sqla_testing]`` blocks pin the DB URI and Requirements
+          # class. The compliance directory is intentionally outside the
+          # default ``test/*test_*.py`` glob so the existing always-green
+          # smoke suite stays fast and merge-gating.
           set -o pipefail
-          pytest --maxfail=0 -p no:cacheprovider \
-            --dburi 'risingwave://root@localhost:4566/dev' \
-            --requirements sqlalchemy_risingwave.requirements:Requirements \
-            --tb=line -q \
-            "$(python -c 'import sqlalchemy.testing.suite as s, os; print(os.path.dirname(s.__file__))')" \
+          pytest --maxfail=0 -p no:cacheprovider --tb=line -q \
+            -o "python_files=*test_*.py" \
+            -o "addopts=" \
+            compliance/ \
             2>&1 | tee compliance.log
 
       - name: Summarize results
