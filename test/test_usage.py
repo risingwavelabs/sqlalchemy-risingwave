@@ -1,5 +1,6 @@
 from sqlalchemy import (
     Column,
+    Enum,
     Integer,
     MetaData,
     String,
@@ -12,8 +13,10 @@ from sqlalchemy import (
 from sqlalchemy.schema import CreateTable
 from sqlalchemy import testing
 from sqlalchemy.testing import fixtures
+from sqlalchemy.types import Uuid
 
 from sqlalchemy_risingwave.psycopg2 import RisingWaveDialect_psycopg2
+from sqlalchemy_risingwave.requirements import Requirements
 
 
 class UsageTest(fixtures.TestBase):
@@ -176,3 +179,45 @@ class UsageTest(fixtures.TestBase):
 
         inspector = inspect(testing.db)
         assert inspector.has_table("sqlalchemy_rw_usage")
+
+    def test_enum_and_uuid_compile_to_varchar(self):
+        metadata = MetaData()
+        table = Table(
+            "sqlalchemy_rw_logical_types",
+            metadata,
+            Column("status", Enum("ready", "failed", name="status_enum")),
+            Column("external_id", Uuid()),
+        )
+
+        ddl = str(
+            CreateTable(table).compile(dialect=RisingWaveDialect_psycopg2())
+        )
+
+        assert "CREATE TYPE" not in ddl
+        assert "status_enum" not in ddl
+        assert " UUID" not in ddl
+        assert ddl.count("VARCHAR") == 2
+
+    def test_create_table_with_enum_and_uuid_runs_on_risingwave(self):
+        metadata = MetaData()
+        Table(
+            "sqlalchemy_rw_usage",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("status", Enum("ready", "failed", name="status_enum")),
+            Column("external_id", Uuid()),
+        )
+
+        metadata.create_all(testing.db)
+
+        inspector = inspect(testing.db)
+        assert inspector.has_table("sqlalchemy_rw_usage")
+
+    def test_compliance_requirements_disable_unsupported_fk_and_uuid_features(self):
+        requirements = Requirements()
+
+        assert not requirements.foreign_keys.enabled
+        assert not requirements.foreign_key_ddl.enabled
+        assert not requirements.self_referential_foreign_keys.enabled
+        assert not requirements.foreign_key_constraint_reflection.enabled
+        assert not requirements.uuid_data_type.enabled

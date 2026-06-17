@@ -116,6 +116,12 @@ class RisingWaveTypeCompiler(PGTypeCompiler):
     def visit_DECIMAL(self, type_, **kw):
         return "DECIMAL"
 
+    def visit_uuid(self, type_, **kw):
+        return "VARCHAR"
+
+    def visit_UUID(self, type_, **kw):
+        return "VARCHAR"
+
 
 _type_map = {
     "bool": sqltypes.BOOLEAN,  # DataType::Boolean
@@ -158,6 +164,8 @@ class RisingWaveDialect(PGDialect_psycopg2):
     name = "risingwave"
     ddl_compiler = RisingWaveDDLCompiler
     type_compiler = RisingWaveTypeCompiler
+    supports_native_enum = False
+    supports_native_uuid = False
 
     _PG_BACKEND_PID_SQL = re.compile(
         r"^\s*SELECT\s+pg_backend_pid\(\)\s*;?\s*$",
