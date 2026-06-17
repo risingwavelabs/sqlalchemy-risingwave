@@ -98,6 +98,12 @@ explicit property of the database.
   RisingWave's streaming model is doing exactly what it should — eventually
   materialising writes. The two designs disagree, and this document is where
   that disagreement is recorded.
+* **Not fixed by switching to the async dialect.** The async path added in
+  v2.1.0 lets a single Python process keep many queries in flight on one
+  thread, which is purely a client-side concurrency story. RisingWave's
+  server-side streaming barriers are unchanged, so an async
+  `INSERT` → `SELECT` block has the same visibility window as a sync
+  one. See [`docs/async.md`](async.md).
 
 ## Related code paths
 
