@@ -35,8 +35,9 @@ from sqlalchemy.testing.plugin.pytestplugin import (
 
 _UNSUPPORTED_CONSTRAINT_FIXTURE_CLASSES = {
     "ComponentReflectionTest",
-    "QuotedNameArgumentTest",
     "CompositeKeyReflectionTest",
+    "JoinTest",
+    "QuotedNameArgumentTest",
 }
 
 
@@ -46,9 +47,9 @@ def pytest_collection_modifyitems(session, config, items):
     skip_constraint_fixtures = pytest.mark.skip(
         reason=(
             "RisingWave does not support table-level CHECK / UNIQUE / FK "
-            "constraints. These upstream suite classes require those "
-            "constraints in class-level fixtures, so the advisory compliance "
-            "run skips them instead of silently stripping user constraints."
+            "constraints. These upstream suite classes require unsupported "
+            "constraint-backed fixtures, so the advisory compliance run skips "
+            "them instead of silently stripping user constraints."
         )
     )
     for item in items:
