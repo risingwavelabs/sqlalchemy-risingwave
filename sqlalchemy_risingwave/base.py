@@ -1,7 +1,11 @@
 import logging
 import re
 
-from sqlalchemy.dialects.postgresql.base import PGDDLCompiler, PGDialect
+from sqlalchemy.dialects.postgresql.base import (
+    PGDDLCompiler,
+    PGDialect,
+    PGTypeCompiler,
+)
 from sqlalchemy.dialects.postgresql.psycopg2 import PGDialect_psycopg2
 from sqlalchemy import schema, text
 from sqlalchemy.engine import reflection
@@ -70,6 +74,49 @@ class RisingWaveDDLCompiler(PGDDLCompiler):
             )
         )
 
+class RisingWaveTypeCompiler(PGTypeCompiler):
+    """Type compiler that drops PostgreSQL-style length / precision arguments.
+
+    RisingWave's DDL parser rejects every PostgreSQL string and numeric type
+    that carries a parenthesised parameter:
+
+    - ``CHAR`` / ``CHAR(n)`` → ``Feature is not yet implemented: CHAR is not
+      supported, please use VARCHAR instead``.
+    - ``VARCHAR(n)`` → ``sql parser error: expected ',' or ')' after column
+      definition, found: '('``.
+    - ``NUMERIC(p, s)`` / ``DECIMAL(p, s)`` → ``unsupported data type:
+      NUMERIC(8,4)``.
+
+    The PostgreSQL parent emits those forms whenever the SQLAlchemy column
+    type carries ``.length`` / ``.precision`` / ``.scale``. That is the
+    default for ``String(50)`` / ``DECIMAL(10, 2)`` / ``Column(CHAR(3))``
+    fixtures the upstream compliance suite uses, so leaving the parent
+    behaviour intact makes hundreds of suite fixtures fail at CREATE TABLE.
+
+    Strip the parameters here. RisingWave does not enforce length / precision
+    caps anyway, so this is a DDL-acceptance fix rather than a semantic loss
+    — same shape as the SERIAL rewrite in ``RisingWaveDDLCompiler``.
+    """
+
+    def visit_CHAR(self, type_, **kw):
+        return "VARCHAR"
+
+    def visit_NCHAR(self, type_, **kw):
+        return "VARCHAR"
+
+    def visit_VARCHAR(self, type_, **kw):
+        return "VARCHAR"
+
+    def visit_NVARCHAR(self, type_, **kw):
+        return "VARCHAR"
+
+    def visit_NUMERIC(self, type_, **kw):
+        return "NUMERIC"
+
+    def visit_DECIMAL(self, type_, **kw):
+        return "DECIMAL"
+
+
 _type_map = {
     "bool": sqltypes.BOOLEAN,  # DataType::Boolean
     "boolean": sqltypes.BOOLEAN,  # DataType::Boolean
@@ -110,6 +157,7 @@ _warned_pg_cancel_probe = False
 class RisingWaveDialect(PGDialect_psycopg2):
     name = "risingwave"
     ddl_compiler = RisingWaveDDLCompiler
+    type_compiler = RisingWaveTypeCompiler
 
     _PG_BACKEND_PID_SQL = re.compile(
         r"^\s*SELECT\s+pg_backend_pid\(\)\s*;?\s*$",
