@@ -1,5 +1,66 @@
 # Changelog
 
+## 2.1.0 - 2026-06-18
+
+Adds the psycopg3 driver path — synchronous and asynchronous — to the
+existing psycopg2 sync dialect. No behaviour on the existing
+`risingwave+psycopg2://` URL changes; 2.1.0 is a backwards-compatible
+addition.
+
+### Added
+
+- psycopg3 driver support via `risingwave+psycopg://` URLs. Sync engines
+  resolve to `RisingWaveDialect_psycopg`; async engines resolve to
+  `RisingWaveDialect_psycopg_async` via the sync class's
+  `get_async_dialect_cls` override, keeping every RisingWave behaviour
+  (compilers, capability flags, reflection, Superset cancel-query shim)
+  consistent across both paths.
+- SQLAlchemy `create_async_engine("risingwave+psycopg://...")` is now
+  supported. The previous `InvalidRequestError` guard from 2.0.x is
+  removed because the underlying async dialect is in place.
+- Optional `psycopg3` extras: `pip install "sqlalchemy-risingwave[psycopg3]"`.
+- A documentation page at `docs/async.md` covering the async usage
+  pattern, FastAPI sketch, the streaming visibility reminder, and the
+  exact set of behaviours every PR validates against a real RisingWave
+  instance in CI.
+- README "Async support" section.
+
+### Changed
+
+- The driver-agnostic RisingWave behaviour has moved from the
+  `RisingWaveDialect` class into a new `_RisingWaveCommon` mixin. The
+  `RisingWaveDialect` name is preserved as an import alias on the
+  psycopg2 path; downstream code that imports it from
+  `sqlalchemy_risingwave.base` continues to work without modification.
+
+### Tests
+
+The new merge-gating integration tests land alongside the dialect.
+They run against a real RisingWave instance via
+``.github/workflows/test.yml`` and a failure blocks merge. The
+``compliance.yml`` workflow remains advisory and is unchanged.
+
+- Cross-driver round trip: data written via psycopg2 sync is read back
+  identically through psycopg3 sync and psycopg3 async, with an
+  explicit `FLUSH` so RisingWave's streaming visibility window can't
+  mask a driver-level mismatch.
+- Parametrised type round-trip matrix across driver
+  (psycopg2, psycopg) × type (Integer, BigInteger, Float, String
+  ASCII / unicode, UUID, Boolean true/false, LargeBinary).
+- Async wall-clock proof that `asyncio.gather` actually parallelises
+  I/O — the test measures one query's elapsed time and asserts the
+  batch of N queries completes in noticeably less than that, so a
+  dialect that secretly serialised every connection would fail loudly.
+
+### Known limitations
+
+- The asyncpg driver is still not implemented; the supported async
+  path is psycopg3 via `risingwave+psycopg://`.
+- Read-after-write visibility is unchanged in either driver: an
+  `INSERT` is not guaranteed to be visible to a subsequent `SELECT`
+  until a checkpoint barrier has passed or the user explicitly runs
+  `FLUSH;`. async does not change this. See `docs/streaming.md`.
+
 ## 2.0.0 - 2026-06-17
 
 This release updates `sqlalchemy-risingwave` for SQLAlchemy 2.0.x and documents the dialect's current compatibility boundary against real RisingWave.

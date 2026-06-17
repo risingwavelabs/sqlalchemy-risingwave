@@ -35,6 +35,58 @@ pip install -e . # install this package
 
 See how to use with Superset: [doc](./doc/integrate_with_superset.md)
 
+## Async support
+
+Released in v2.1.0. RisingWave can now be driven from SQLAlchemy 2.0's
+async engine API via the psycopg3 driver. Install the dialect with the
+optional `psycopg3` extra:
+
+```sh
+pip install -U "sqlalchemy-risingwave[psycopg3]"
+```
+
+Sync and async both go through the same `risingwave+psycopg://` URL —
+SQLAlchemy picks the right dialect class from the engine factory:
+
+```python
+import asyncio
+
+from sqlalchemy import create_engine, text
+from sqlalchemy.ext.asyncio import create_async_engine
+
+
+# Sync
+sync_engine = create_engine("risingwave+psycopg://root@localhost:4566/dev")
+with sync_engine.connect() as conn:
+    print(conn.execute(text("SELECT 1")).scalar_one())
+
+
+# Async
+async def main():
+    async_engine = create_async_engine(
+        "risingwave+psycopg://root@localhost:4566/dev"
+    )
+    try:
+        async with async_engine.connect() as conn:
+            result = await conn.execute(text("SELECT 1"))
+            print(result.scalar_one())
+    finally:
+        await async_engine.dispose()
+
+
+asyncio.run(main())
+```
+
+The legacy `risingwave+psycopg2://` URL is sync only — psycopg2 itself
+has no async mode. async-only drivers such as `asyncpg` are not
+implemented; the supported async path is psycopg3.
+
+See [`docs/async.md`](docs/async.md) for the full usage guide, the
+FastAPI sketch, the read-after-write reminder (RisingWave streaming
+visibility still applies — async does not change it), and the list of
+behaviour each PR is required to validate against a real RisingWave
+instance in CI.
+
 ## SQLAlchemy compatibility
 
 This dialect targets SQLAlchemy 2.0+. RisingWave's SQL surface is

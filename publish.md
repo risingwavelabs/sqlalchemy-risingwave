@@ -37,6 +37,7 @@ workflow later.
 8. After PyPI upload succeeds, create and push the matching git tag:
 
    ```sh
-   git tag v2.0.0
-   git push origin v2.0.0
+   VERSION=2.1.0
+   git tag "v$VERSION"
+   git push origin "v$VERSION"
    ```
