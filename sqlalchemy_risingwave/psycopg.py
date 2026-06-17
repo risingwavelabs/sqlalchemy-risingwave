@@ -19,3 +19,8 @@ from .base import _RisingWaveCommon
 
 class RisingWaveDialect_psycopg(_RisingWaveCommon, PGDialect_psycopg):
     driver = "psycopg"
+    # ``supports_statement_cache`` must be set on the concrete dialect class
+    # because SQLAlchemy reads it via ``self.__class__.__dict__.get(...)`` and
+    # ignores inherited values; without this redeclaration SQLAlchemy emits a
+    # warning and disables the statement cache for ``risingwave+psycopg://``.
+    supports_statement_cache = True
