@@ -220,4 +220,5 @@ class UsageTest(fixtures.TestBase):
         assert not requirements.foreign_key_ddl.enabled
         assert not requirements.self_referential_foreign_keys.enabled
         assert not requirements.foreign_key_constraint_reflection.enabled
+        assert not requirements.unique_constraint_reflection.enabled
         assert not requirements.uuid_data_type.enabled

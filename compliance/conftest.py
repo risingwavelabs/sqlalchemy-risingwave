@@ -28,3 +28,32 @@ registry.register(
 pytest.register_assert_rewrite("sqlalchemy.testing.assertions")
 
 from sqlalchemy.testing.plugin.pytestplugin import *  # noqa: F401,F403
+from sqlalchemy.testing.plugin.pytestplugin import (
+    pytest_collection_modifyitems as _sqla_pytest_collection_modifyitems,
+)
+
+
+_UNSUPPORTED_CONSTRAINT_FIXTURE_CLASSES = {
+    "ComponentReflectionTest",
+    "QuotedNameArgumentTest",
+    "CompositeKeyReflectionTest",
+}
+
+
+def pytest_collection_modifyitems(session, config, items):
+    _sqla_pytest_collection_modifyitems(session, config, items)
+
+    skip_constraint_fixtures = pytest.mark.skip(
+        reason=(
+            "RisingWave does not support table-level CHECK / UNIQUE / FK "
+            "constraints. These upstream suite classes require those "
+            "constraints in class-level fixtures, so the advisory compliance "
+            "run skips them instead of silently stripping user constraints."
+        )
+    )
+    for item in items:
+        if any(
+            item.nodeid.startswith(f"compliance/test_suite.py::{class_name}_")
+            for class_name in _UNSUPPORTED_CONSTRAINT_FIXTURE_CLASSES
+        ):
+            item.add_marker(skip_constraint_fixtures)
