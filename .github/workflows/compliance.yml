@@ -12,7 +12,10 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - compliance/**
       - sqlalchemy_risingwave/**
+      - setup.cfg
+      - setup.py
       - test-requirements.in
       - test-requirements.txt
       - .github/workflows/compliance.yml
