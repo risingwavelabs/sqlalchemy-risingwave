@@ -53,6 +53,56 @@ class SchemaTest(fixtures.TestBase):
         assert users.c.name.primary_key
         assert [column.name for column in users.primary_key.columns] == ["name"]
 
+    def test_get_pk_constraint_composite_uses_catalog_order(self):
+        with testing.db.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE TABLE composite_pk ("
+                    "a INT,"
+                    "b INT,"
+                    "c INT,"
+                    "PRIMARY KEY (b, a)"
+                    ")"
+                )
+            )
+
+            insp = inspect(testing.db)
+            pk = insp.get_pk_constraint("composite_pk")
+
+            # RisingWave v3.0 reports composite primary keys in table-column
+            # order, even when the DDL declared PRIMARY KEY (b, a).
+            assert pk["constrained_columns"] == ["a", "b"]
+            assert pk["name"] is not None
+
+            conn.execute(text("DROP TABLE composite_pk"))
+
+    def test_get_pk_constraint_no_pk(self):
+        with testing.db.begin() as conn:
+            conn.execute(text("CREATE TABLE no_pk (x INT)"))
+
+            insp = inspect(testing.db)
+            pk = insp.get_pk_constraint("no_pk")
+
+            assert pk == {"constrained_columns": [], "name": None}
+
+            conn.execute(text("DROP TABLE no_pk"))
+
+    def test_get_pk_constraint_named_schema(self):
+        with testing.db.begin() as conn:
+            conn.execute(text("CREATE SCHEMA pk_schema"))
+            conn.execute(
+                text("CREATE TABLE pk_schema.schema_pk (id INT PRIMARY KEY)")
+            )
+
+            insp = inspect(testing.db)
+            pk = insp.get_pk_constraint("schema_pk", schema="pk_schema")
+
+            assert pk["constrained_columns"] == ["id"]
+            assert pk["name"] is not None
+
+            conn.execute(text("DROP TABLE pk_schema.schema_pk"))
+            conn.execute(text("DROP SCHEMA pk_schema"))
+
     def test_get_columns_reflects_text_and_alias_types(self):
         with testing.db.begin() as conn:
             conn.execute(

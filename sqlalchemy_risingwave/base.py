@@ -444,6 +444,8 @@ class RisingWaveDialect(PGDialect_psycopg2):
             },
         ).fetchall()
 
+        rows = [row for row in rows if row.column_name != "_row_id"]
+
         if not rows:
             return {"constrained_columns": [], "name": None}
 
