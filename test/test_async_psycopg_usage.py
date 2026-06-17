@@ -88,6 +88,11 @@ class AsyncPsycopgUsageTest(fixtures.TestBase):
         try:
             assert isinstance(engine.dialect, RisingWaveDialect_psycopg_async)
             assert engine.dialect.name == "risingwave"
+            # ``driver`` names the DBAPI / URL driver, not the sync-vs-async
+            # mode; both the sync and the async RisingWave dialects report
+            # ``"psycopg"`` to stay consistent with the SQLAlchemy
+            # convention and the ``risingwave+psycopg://`` URL form.
+            assert engine.dialect.driver == "psycopg"
             assert engine.dialect.is_async is True
         finally:
             await engine.dispose()

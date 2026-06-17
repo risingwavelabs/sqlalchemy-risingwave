@@ -36,13 +36,14 @@ class RisingWaveDialect_psycopg_async(_RisingWaveCommon, PGDialectAsync_psycopg)
 
     Used by ``create_async_engine("risingwave+psycopg://...")``. The class
     body is intentionally minimal: every RisingWave override is contributed
-    by ``_RisingWaveCommon`` so async and sync stay in lockstep, and
-    ``is_async`` / ``supports_statement_cache`` come from
-    ``PGDialectAsync_psycopg`` and the concrete-class flag below
-    respectively.
+    by ``_RisingWaveCommon`` so async and sync stay in lockstep,
+    ``is_async`` comes from ``PGDialectAsync_psycopg``, the inherited
+    ``driver`` stays ``"psycopg"`` to match the SQLAlchemy convention and
+    the ``risingwave+psycopg://`` URL form (the driver name is the DBAPI,
+    not the sync-vs-async mode), and ``supports_statement_cache`` is set
+    explicitly because SQLAlchemy reads it from ``self.__class__.__dict__``.
     """
 
-    driver = "psycopg_async"
     supports_statement_cache = True
 
 
