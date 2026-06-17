@@ -221,6 +221,23 @@ class PsycopgUsageTest(fixtures.TestBase):
         assert " UUID" not in ddl
         assert ddl.count("VARCHAR") >= 2
 
+    def test_psycopg_async_dispatch_is_rejected_until_pr_beta(self):
+        # PR α intentionally does not implement the async path. SQLAlchemy
+        # resolves the async dialect via the sync class's
+        # ``get_async_dialect_cls``; without an override we would inherit
+        # ``PGDialect_psycopg``'s implementation, which returns the raw
+        # ``PGDialectAsync_psycopg`` and silently drops every RisingWave
+        # override (SERIAL rewrite, type compiler, Superset shim, etc.).
+        # That silent fallback would be worse than an explicit failure, so
+        # the dialect raises ``InvalidRequestError`` pointing at issue #57.
+        from sqlalchemy import exc
+        from sqlalchemy.engine import make_url
+
+        with pytest.raises(exc.InvalidRequestError, match="not implemented"):
+            RisingWaveDialect_psycopg.get_async_dialect_cls(
+                make_url("risingwave+psycopg://u:p@localhost/db")
+            )
+
     def test_psycopg_create_table_with_enum_and_uuid_runs_on_risingwave(self):
         engine = create_engine(_psycopg_url())
         try:
