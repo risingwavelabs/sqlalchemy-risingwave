@@ -22,7 +22,11 @@ class Requirements(SuiteRequirementsSQLA):
     time = exclusions.closed()
     time_microseconds = exclusions.closed()
     server_side_cursors = exclusions.closed()
+    foreign_keys = exclusions.closed()
+    foreign_key_ddl = exclusions.closed()
     cross_schema_fk_reflection = exclusions.closed()
+    self_referential_foreign_keys = exclusions.closed()
+    foreign_key_constraint_reflection = exclusions.closed()
 
     # We don't do implicit casts.
     date_coerces_from_datetime = exclusions.closed()
@@ -79,7 +83,7 @@ class Requirements(SuiteRequirementsSQLA):
     two_phase_transactions = exclusions.closed()
     update_from = exclusions.open()
     mod_operator_as_percent_sign = exclusions.open()
-    foreign_key_constraint_reflection = exclusions.open()
+    uuid_data_type = exclusions.closed()
     # The psycopg driver doesn't support these.
     percent_schema_names = exclusions.closed()
     order_by_label_with_expression = exclusions.open()
