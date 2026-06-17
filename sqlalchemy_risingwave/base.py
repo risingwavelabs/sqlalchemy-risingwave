@@ -403,8 +403,37 @@ class RisingWaveDialect(PGDialect_psycopg2):
 
     @reflection.cache
     def get_pk_constraint(self, conn, table_name, schema=None, **kw):
-        # TODO: Fill in real implementation to make get pk constraint work.
-        return dict()
+        sql = """
+            SELECT
+                tc.constraint_name,
+                kcu.column_name
+            FROM information_schema.table_constraints AS tc
+            JOIN information_schema.key_column_usage AS kcu
+              ON tc.constraint_catalog = kcu.constraint_catalog
+             AND tc.constraint_schema = kcu.constraint_schema
+             AND tc.constraint_name = kcu.constraint_name
+             AND tc.table_schema = kcu.table_schema
+             AND tc.table_name = kcu.table_name
+            WHERE tc.constraint_type = 'PRIMARY KEY'
+              AND tc.table_schema = :table_schema
+              AND tc.table_name = :table_name
+            ORDER BY kcu.ordinal_position
+        """
+        rows = conn.execute(
+            text(sql),
+            {
+                "table_schema": schema or self.default_schema_name,
+                "table_name": table_name,
+            },
+        ).fetchall()
+
+        if not rows:
+            return {"constrained_columns": [], "name": None}
+
+        return {
+            "constrained_columns": [row.column_name for row in rows],
+            "name": rows[0].constraint_name,
+        }
 
     @reflection.cache
     def get_unique_constraints(self, conn, table_name, schema=None, **kw):

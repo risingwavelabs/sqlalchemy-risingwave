@@ -38,6 +38,20 @@ class SchemaTest(fixtures.TestBase):
 
             conn.execute(text("DROP TABLE t"))
 
+    def test_get_pk_constraint(self):
+        insp = inspect(testing.db)
+        pk = insp.get_pk_constraint("users")
+
+        assert pk["constrained_columns"] == ["name"]
+        assert pk["name"] is not None
+
+    def test_reflected_primary_key_column(self):
+        reflected_meta = MetaData()
+        users = Table("users", reflected_meta, autoload_with=testing.db)
+
+        assert users.c.name.primary_key
+        assert [column.name for column in users.primary_key.columns] == ["name"]
+
     def test_get_view_names(self):
         with testing.db.begin() as conn:
             conn.execute(text("CREATE TABLE t (id1 INT, id2 INT, id3 INT)"))
