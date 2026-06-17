@@ -1,0 +1,97 @@
+name: SQLAlchemy compliance suite (baseline)
+
+# Phase 3 of the SQLAlchemy 2.0+ support effort: run the upstream
+# ``sqlalchemy.testing.suite`` against a real RisingWave instance and
+# record how many dialect-level conformance tests pass. The suite is
+# intentionally not required for PR merge yet — its purpose right now is
+# to surface the actual gap between "RisingWave-compatible" and "real
+# SQLAlchemy dialect compliance", so that requirements.py can be tuned
+# off measured behaviour rather than copy-pasted from CockroachDB.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - sqlalchemy_risingwave/**
+      - test-requirements.in
+      - test-requirements.txt
+      - .github/workflows/compliance.yml
+  workflow_dispatch:
+
+jobs:
+  compliance:
+    runs-on: ubuntu-latest
+    # Do not block PRs on compliance regressions yet — first we need a
+    # measured baseline, then we tighten requirements.py and re-enable
+    # individual feature flags. Until then the suite output is advisory.
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            setup.py
+            test-requirements.txt
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r test-requirements.txt
+          pip install .
+
+      - name: Install RisingWave
+        run: curl -L https://risingwave.com/sh | sh
+
+      - name: Start RisingWave
+        run: |
+          ./risingwave >stdout.log 2>stderr.log &
+          # Standalone mode takes a few seconds to accept psql connections.
+          sleep 5
+
+      - name: Run SQLAlchemy compliance suite
+        id: suite
+        continue-on-error: true
+        run: |
+          # The suite uses pytest's plugin discovery to pick up the
+          # ``Requirements`` class in sqlalchemy_risingwave.requirements;
+          # ``--dburi`` tells the suite which database to drive.
+          set -o pipefail
+          pytest --maxfail=0 -p no:cacheprovider \
+            --dburi 'risingwave://root@localhost:4566/dev' \
+            --requirements sqlalchemy_risingwave.requirements:Requirements \
+            --tb=line -q \
+            "$(python -c 'import sqlalchemy.testing.suite as s, os; print(os.path.dirname(s.__file__))')" \
+            2>&1 | tee compliance.log
+
+      - name: Summarize results
+        if: always()
+        run: |
+          if [ -f compliance.log ]; then
+            echo '## SQLAlchemy compliance suite summary' >> "$GITHUB_STEP_SUMMARY"
+            echo '' >> "$GITHUB_STEP_SUMMARY"
+            tail -n 20 compliance.log >> "$GITHUB_STEP_SUMMARY" || true
+          else
+            echo 'compliance.log not produced' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload compliance log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-log
+          path: compliance.log
+          if-no-files-found: warn
+
+      - name: Upload RisingWave logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risingwave-logs
+          path: |
+            stdout.log
+            stderr.log
+          if-no-files-found: warn
