@@ -28,7 +28,7 @@ pytest==9.1.0
     # via
     #   -r test-requirements.in
     #   pytest-asyncio
-pytest-asyncio==1.2.0
+pytest-asyncio==1.4.0
     # via -r test-requirements.in
 sqlalchemy==2.0.51
     # via
