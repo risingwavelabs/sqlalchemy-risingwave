@@ -49,18 +49,32 @@ Sync and async both go through the same `risingwave+psycopg://` URL —
 SQLAlchemy picks the right dialect class from the engine factory:
 
 ```python
+import asyncio
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+
 # Sync
 sync_engine = create_engine("risingwave+psycopg://root@localhost:4566/dev")
+with sync_engine.connect() as conn:
+    print(conn.execute(text("SELECT 1")).scalar_one())
+
 
 # Async
-async_engine = create_async_engine("risingwave+psycopg://root@localhost:4566/dev")
+async def main():
+    async_engine = create_async_engine(
+        "risingwave+psycopg://root@localhost:4566/dev"
+    )
+    try:
+        async with async_engine.connect() as conn:
+            result = await conn.execute(text("SELECT 1"))
+            print(result.scalar_one())
+    finally:
+        await async_engine.dispose()
 
-async with async_engine.connect() as conn:
-    result = await conn.execute(text("SELECT 1"))
-    print(result.scalar_one())
+
+asyncio.run(main())
 ```
 
 The legacy `risingwave+psycopg2://` URL is sync only — psycopg2 itself

@@ -35,7 +35,10 @@ addition.
 
 ### Tests
 
-The new advisory CI gates land alongside the dialect:
+The new merge-gating integration tests land alongside the dialect.
+They run against a real RisingWave instance via
+``.github/workflows/test.yml`` and a failure blocks merge. The
+``compliance.yml`` workflow remains advisory and is unchanged.
 
 - Cross-driver round trip: data written via psycopg2 sync is read back
   identically through psycopg3 sync and psycopg3 async, with an
