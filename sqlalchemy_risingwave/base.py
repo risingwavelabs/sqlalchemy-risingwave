@@ -1,14 +1,74 @@
 import logging
 import re
 
-from sqlalchemy.dialects.postgresql.base import PGDialect
+from sqlalchemy.dialects.postgresql.base import PGDDLCompiler, PGDialect
 from sqlalchemy.dialects.postgresql.psycopg2 import PGDialect_psycopg2
-from sqlalchemy import text
+from sqlalchemy import schema, text
 from sqlalchemy.engine import reflection
 from sqlalchemy.util import warn
 
 import sqlalchemy.types as sqltypes
 import sqlalchemy.exc as exc
+
+
+class RisingWaveDDLCompiler(PGDDLCompiler):
+    """DDL compiler that rewrites PostgreSQL autoincrement keywords.
+
+    RisingWave's DDL parser rejects ``SERIAL`` / ``BIGSERIAL`` /
+    ``SMALLSERIAL`` with ``Not supported: Column type SERIAL is not
+    supported. HINT: Please remove the SERIAL column``. The PG parent
+    emits those keywords for any primary-key integer column that the ORM
+    flags as autoincrement, including the implicit autoincrement that
+    ``Table(... Column("id", Integer, primary_key=True) ...)`` picks up.
+
+    RisingWave does not provide PostgreSQL's per-row autoincrement
+    semantics anyway, so rewrite the keyword back to the underlying
+    integer type and let inserts supply explicit values. This makes the
+    upstream ``sqlalchemy.testing.suite`` fixtures actually create their
+    tables instead of erroring during setup, which is what surfaces the
+    real per-feature behaviour underneath.
+    """
+
+    _SERIAL_KEYWORDS = (
+        (" BIGSERIAL", " BIGINT"),
+        (" SMALLSERIAL", " SMALLINT"),
+        (" SERIAL", " INTEGER"),
+    )
+
+    def get_column_specification(self, column, **kwargs):
+        spec = super().get_column_specification(column, **kwargs)
+        if not self._has_pg_serial_autoincrement(column):
+            return spec
+
+        for serial_kw, concrete_kw in self._SERIAL_KEYWORDS:
+            if serial_kw in spec:
+                spec = spec.replace(serial_kw, concrete_kw)
+        return spec
+
+    def _has_pg_serial_autoincrement(self, column):
+        impl_type = column.type.dialect_impl(self.dialect)
+        if isinstance(impl_type, sqltypes.TypeDecorator):
+            impl_type = impl_type.impl
+
+        has_identity = (
+            column.identity is not None and self.dialect.supports_identity_columns
+        )
+        return (
+            column.primary_key
+            and column is column.table._autoincrement_column
+            and (
+                self.dialect.supports_smallserial
+                or not isinstance(impl_type, sqltypes.SmallInteger)
+            )
+            and not has_identity
+            and (
+                column.default is None
+                or (
+                    isinstance(column.default, schema.Sequence)
+                    and column.default.optional
+                )
+            )
+        )
 
 _type_map = {
     "bool": sqltypes.BOOLEAN,  # DataType::Boolean
@@ -49,6 +109,7 @@ _warned_pg_cancel_probe = False
 
 class RisingWaveDialect(PGDialect_psycopg2):
     name = "risingwave"
+    ddl_compiler = RisingWaveDDLCompiler
 
     _PG_BACKEND_PID_SQL = re.compile(
         r"^\s*SELECT\s+pg_backend_pid\(\)\s*;?\s*$",
