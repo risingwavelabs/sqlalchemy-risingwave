@@ -35,6 +35,17 @@ class Requirements(SuiteRequirementsSQLA):
     # The autoincrement tests assume a predictable 1-based sequence.
     autoincrement_insert = exclusions.closed()
 
+    # RisingWave does not implement PostgreSQL's SERIAL / IDENTITY column
+    # autoincrement. The upstream compliance suite uses ``id SERIAL PRIMARY
+    # KEY`` as the default table-fixture shape, so leaving these flags open
+    # turns essentially every test in the suite into a CREATE TABLE failure:
+    # ``Not supported: Column type SERIAL is not supported``. Marking them
+    # closed lets ``sqlalchemy.testing.suite`` skip those tests cleanly
+    # instead of erroring during fixture setup.
+    autoincrement_without_sequence = exclusions.closed()
+    identity_columns = exclusions.closed()
+    identity_columns_standard = exclusions.closed()
+
     # The following features are off by default. We turn on as many as
     # we can without causing test failures.
     non_updating_cascade = exclusions.closed()
