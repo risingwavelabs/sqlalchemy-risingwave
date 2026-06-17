@@ -1,6 +1,7 @@
 from sqlalchemy import text
 from sqlalchemy import MetaData, Table, testing, inspect
 from sqlalchemy.testing import fixtures
+import sqlalchemy.types as sqltypes
 
 
 class SchemaTest(fixtures.TestBase):
@@ -51,6 +52,30 @@ class SchemaTest(fixtures.TestBase):
 
         assert users.c.name.primary_key
         assert [column.name for column in users.primary_key.columns] == ["name"]
+
+    def test_get_columns_reflects_text_and_alias_types(self):
+        with testing.db.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE TABLE reflected_types ("
+                    "txt TEXT,"
+                    "short_name VARCHAR,"
+                    "amount DECIMAL"
+                    ")"
+                )
+            )
+
+            insp = inspect(testing.db)
+            columns = {
+                column["name"]: column["type"]
+                for column in insp.get_columns("reflected_types")
+            }
+
+            assert isinstance(columns["txt"], sqltypes.VARCHAR)
+            assert isinstance(columns["short_name"], sqltypes.VARCHAR)
+            assert isinstance(columns["amount"], sqltypes.DECIMAL)
+
+            conn.execute(text("DROP TABLE reflected_types"))
 
     def test_get_view_names(self):
         with testing.db.begin() as conn:

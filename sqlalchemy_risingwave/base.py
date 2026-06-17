@@ -25,6 +25,7 @@ _type_map = {
     "numeric": sqltypes.DECIMAL,  # DataType::Decimal
     "decimal": sqltypes.DECIMAL,  # DataType::Decimal
     "date": sqltypes.DATE,  # DataType::Date
+    "text": sqltypes.TEXT,
     "varchar": sqltypes.VARCHAR,  # DataType::Varchar
     "character varying": sqltypes.VARCHAR,  # DataType::Varchar
     "time": sqltypes.Time,  # DataType::Time
@@ -192,11 +193,15 @@ class RisingWaveDialect(PGDialect_psycopg2):
                 warn("Struct is not supported")
                 type_class = sqltypes.NULLTYPE
             else:
-                m = re.match(r"^([a-z ]+)((\[\])*)$", type_str)
+                m = re.match(
+                    r"^([a-z ]+)(?:\(([^)]*)\))?((\[\])*)$",
+                    type_str,
+                )
                 kwargs = {}
                 if m:
                     groups = m.groups()
                     type_name = groups[0]
+                    type_args = groups[1]
 
                     if type_name in _type_map:
                         data_type = _type_map[type_name]
@@ -205,13 +210,25 @@ class RisingWaveDialect(PGDialect_psycopg2):
 
                     if type_name == "timestamp with time zone":
                         kwargs["timezone"] = True
+                    if type_name in ("varchar", "character varying") and type_args:
+                        kwargs["length"] = int(type_args)
+                    if type_name in ("numeric", "decimal") and type_args:
+                        numeric_args = [
+                            int(arg.strip())
+                            for arg in type_args.split(",")
+                            if arg.strip()
+                        ]
+                        if len(numeric_args) >= 1:
+                            kwargs["precision"] = numeric_args[0]
+                        if len(numeric_args) >= 2:
+                            kwargs["scale"] = numeric_args[1]
                 else:
                     data_type = None
 
                 if data_type:
                     type_class = data_type(**kwargs)
-                    if len(groups) > 1:
-                        array_suffixs = re.findall(r"\[\]", groups[1])
+                    if groups[2]:
+                        array_suffixs = re.findall(r"\[\]", groups[2])
                         for i in range(0, len(array_suffixs)):
                             type_class = sqltypes.ARRAY(type_class)
                 else:
