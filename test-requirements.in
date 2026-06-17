@@ -4,8 +4,7 @@
 # To add/update dependencies, update test-requirements.in (not the
 # generated test-requirements.txt) and run make update-requirements
 
-# Keep the test lock compatible with the current Python 3.8/3.9 CI matrix.
-alembic<1.15
+alembic
 asyncpg
 futures
 mock
