@@ -86,8 +86,11 @@ at the data layer — not a silent change to a user-declared invariant:
 ### User-declared invariants the dialect does NOT silently drop
 
 Silently rewriting these would let an application's data model assumptions
-break without anyone noticing, so the dialect lets RisingWave reject the DDL
-and the user sees the real error:
+break without anyone noticing, so the dialect does not strip, emulate, or
+pretend to enforce them. Depending on the RisingWave version and construct,
+RisingWave may reject the DDL or accept metadata that is not enforced at
+runtime; in either case, the application must not rely on the dialect to
+provide the invariant:
 
 * `CHECK` constraints — not enforced by RisingWave.
 * `UNIQUE` constraints — not enforced.
