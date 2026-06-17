@@ -139,6 +139,49 @@ class AsyncPsycopgUsageTest(fixtures.TestBase):
             _drop_table_sync("sqlalchemy_rw_async")
 
     @pytest.mark.asyncio
+    async def test_async_insert_and_select_with_bind_parameters(self):
+        # Codex PR β review note #1: the type matrix and the cross-driver
+        # test both used the psycopg2 sync engine for writes and only
+        # exercised the async psycopg3 dialect on reads, which would let
+        # an async-side bind-parameter adapter bug ship undetected. This
+        # test issues a parameterised INSERT through the async dialect
+        # itself, then reads it back via the same dialect after an
+        # explicit ``FLUSH`` so RisingWave's streaming visibility
+        # property cannot hide a real driver-side problem.
+        engine = create_async_engine(_async_psycopg3_url())
+        table_name = "sqlalchemy_rw_async_write"
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
+                await conn.execute(
+                    text(
+                        f"CREATE TABLE {table_name} ("
+                        "id INTEGER PRIMARY KEY, "
+                        "name VARCHAR"
+                        ")"
+                    )
+                )
+                await conn.execute(
+                    text(f"INSERT INTO {table_name} (id, name) VALUES (:id, :val)"),
+                    {"id": 1, "val": "alpha"},
+                )
+                await conn.execute(
+                    text(f"INSERT INTO {table_name} (id, name) VALUES (:id, :val)"),
+                    {"id": 2, "val": "中文 unicode"},
+                )
+                await conn.execute(text("FLUSH"))
+
+            async with engine.connect() as conn:
+                result = await conn.execute(
+                    text(f"SELECT id, name FROM {table_name} ORDER BY id")
+                )
+                rows = result.all()
+            assert rows == [(1, "alpha"), (2, "中文 unicode")]
+        finally:
+            await engine.dispose()
+            _drop_table_sync(table_name)
+
+    @pytest.mark.asyncio
     async def test_async_superset_cancel_probe_degrades_to_noop(self):
         # The Superset shim is shared via ``_RisingWaveCommon.do_execute``
         # so it must continue to fire under the async dialect; verifying
@@ -199,23 +242,45 @@ class AsyncConcurrencyProofTest(fixtures.TestBase):
                 await conn.execute(text(slow_query))
 
         try:
-            # Warm the connection pool / dialect bind on a single query.
+            # First warm the dialect / connection pool so the measured
+            # single-query baseline doesn't carry the one-time engine
+            # bootstrap cost. Then measure one query, then a batch of N
+            # concurrent queries, and compare the two directly. Asserting
+            # against the *measured* single-query time instead of a
+            # hard-coded ~0.5s threshold lets the test stay meaningful no
+            # matter which slow query the fixture picks (pg_sleep when
+            # supported, generate_series fallback otherwise).
             await one_query()
 
             start = time.monotonic()
+            await one_query()
+            single = time.monotonic() - start
+
+            start = time.monotonic()
             await asyncio.gather(*[one_query() for _ in range(N)])
-            elapsed = time.monotonic() - start
+            batch = time.monotonic() - start
         finally:
             await engine.dispose()
 
-        # N independent queries that each take ~T seconds should finish
-        # in roughly T, not N*T, if async I/O is truly concurrent. Give a
-        # comfortable margin (~ 2x) for CI scheduler noise.
-        single_query_estimate = 0.5
-        max_acceptable = single_query_estimate * 2
-        assert elapsed < max_acceptable, (
+        # If the dialect actually parallelises async I/O, the batch must
+        # finish in noticeably less time than running ``one_query`` ``N``
+        # times sequentially. ``0.6 * single * N`` is a generous bound: a
+        # truly serial dialect produces ``~1.0 * single * N`` even on the
+        # quickest CI runner, so this catches "async syntax but secretly
+        # serial" without flaking on scheduler jitter.
+        assert batch < single * N * 0.6, (
             f"async dialect did not parallelise: {N} queries took "
-            f"{elapsed:.3f}s, expected ≲ {max_acceptable:.1f}s"
+            f"{batch:.3f}s, but a single query took {single:.3f}s "
+            f"(serial estimate {single * N:.3f}s)"
+        )
+        # And a separate absolute-style bound catches the pathological
+        # case where the single-query measurement was extremely short
+        # (e.g. <50ms), where the relative bound above would still allow
+        # a regression to slip through.
+        assert batch < max(single * 2.5, 1.0), (
+            f"async dialect ran the batch in {batch:.3f}s, much more than "
+            f"a single query's {single:.3f}s — that strongly suggests "
+            "the I/O is not actually concurrent"
         )
 
 
@@ -384,26 +449,26 @@ def test_type_round_trip_matrix_sync(driver, col_type, py_val):
 @pytest.mark.parametrize("col_type, py_val", _TYPE_ROUND_TRIP_CASES)
 @pytest.mark.asyncio
 async def test_type_round_trip_matrix_async_psycopg(col_type, py_val):
-    """Async psycopg3 leg of the type round-trip matrix."""
+    """Async psycopg3 leg of the type round-trip matrix.
+
+    Writes and reads both happen through the async psycopg3 dialect so
+    the matrix actually exercises async-side bind-parameter adaptation,
+    not just async-side result decoding. The ``FLUSH`` between insert
+    and select prevents RisingWave's streaming visibility from being
+    misdiagnosed as a type adapter bug.
+    """
 
     table_name = "sqlalchemy_rw_typmatrix_async"
     metadata, table = _make_cross_driver_table(table_name, col_type)
 
-    # Set up the schema and data via sync psycopg2 so the matrix isolates
-    # async-read behaviour; the cross-driver write/read consistency test
-    # above already covers async-write paths separately.
-    engine_sync = create_engine(_sync_psycopg2_url())
-    try:
-        with engine_sync.begin() as conn:
-            conn.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
-            metadata.create_all(conn)
-            conn.execute(table.insert().values(id=1, val=py_val))
-            conn.execute(text("FLUSH"))
-    finally:
-        engine_sync.dispose()
-
     engine_async = create_async_engine(_async_psycopg3_url())
     try:
+        async with engine_async.begin() as conn:
+            await conn.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
+            await conn.run_sync(metadata.create_all)
+            await conn.execute(table.insert().values(id=1, val=py_val))
+            await conn.execute(text("FLUSH"))
+
         async with engine_async.connect() as conn:
             result = await conn.execute(table.select().where(table.c.id == 1))
             retrieved = result.one().val
