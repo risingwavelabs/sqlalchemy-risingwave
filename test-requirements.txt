@@ -25,6 +25,10 @@ psycopg2==2.9.12
 pygments==2.20.0
     # via pytest
 pytest==9.1.0
+    # via
+    #   -r test-requirements.in
+    #   pytest-asyncio
+pytest-asyncio==1.2.0
     # via -r test-requirements.in
 sqlalchemy==2.0.51
     # via
