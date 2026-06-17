@@ -24,7 +24,8 @@ class TestTenantParameter:
         """Test that tenant is merged with existing options parameter."""
         dialect = RisingWaveDialect()
         url = create_engine(
-            "risingwave://user:pass@host:4566/db?tenant=my-tenant&options=-c%20statement_timeout%3D30000"
+            "risingwave://user:pass@host:4566/db"
+            "?tenant=my-tenant&options=-c%20statement_timeout%3D30000"
         ).url
 
         cargs, cparams = dialect.create_connect_args(url)
