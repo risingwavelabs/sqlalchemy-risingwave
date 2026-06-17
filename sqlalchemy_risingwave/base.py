@@ -3,7 +3,7 @@ import re
 
 from sqlalchemy.dialects.postgresql.base import PGDDLCompiler, PGDialect
 from sqlalchemy.dialects.postgresql.psycopg2 import PGDialect_psycopg2
-from sqlalchemy import text
+from sqlalchemy import schema, text
 from sqlalchemy.engine import reflection
 from sqlalchemy.util import warn
 
@@ -37,10 +37,38 @@ class RisingWaveDDLCompiler(PGDDLCompiler):
 
     def get_column_specification(self, column, **kwargs):
         spec = super().get_column_specification(column, **kwargs)
+        if not self._has_pg_serial_autoincrement(column):
+            return spec
+
         for serial_kw, concrete_kw in self._SERIAL_KEYWORDS:
             if serial_kw in spec:
                 spec = spec.replace(serial_kw, concrete_kw)
         return spec
+
+    def _has_pg_serial_autoincrement(self, column):
+        impl_type = column.type.dialect_impl(self.dialect)
+        if isinstance(impl_type, sqltypes.TypeDecorator):
+            impl_type = impl_type.impl
+
+        has_identity = (
+            column.identity is not None and self.dialect.supports_identity_columns
+        )
+        return (
+            column.primary_key
+            and column is column.table._autoincrement_column
+            and (
+                self.dialect.supports_smallserial
+                or not isinstance(impl_type, sqltypes.SmallInteger)
+            )
+            and not has_identity
+            and (
+                column.default is None
+                or (
+                    isinstance(column.default, schema.Sequence)
+                    and column.default.optional
+                )
+            )
+        )
 
 _type_map = {
     "bool": sqltypes.BOOLEAN,  # DataType::Boolean

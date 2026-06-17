@@ -9,8 +9,11 @@ from sqlalchemy import (
     select,
     text,
 )
+from sqlalchemy.schema import CreateTable
 from sqlalchemy import testing
 from sqlalchemy.testing import fixtures
+
+from sqlalchemy_risingwave.psycopg2 import RisingWaveDialect_psycopg2
 
 
 class UsageTest(fixtures.TestBase):
@@ -103,3 +106,18 @@ class UsageTest(fixtures.TestBase):
 
         inspector = inspect(testing.db)
         assert inspector.has_table("sqlalchemy_rw_usage")
+
+    def test_serial_rewrite_does_not_mutate_default_literals(self):
+        metadata = MetaData()
+        table = Table(
+            "sqlalchemy_rw_defaults",
+            metadata,
+            Column("note", String, server_default=text("' SERIAL'")),
+        )
+
+        ddl = str(
+            CreateTable(table).compile(dialect=RisingWaveDialect_psycopg2())
+        )
+
+        assert "DEFAULT ' SERIAL'" in ddl
+        assert "DEFAULT ' INTEGER'" not in ddl
