@@ -43,7 +43,17 @@ setup(
         # ``create_engine`` and async ``create_async_engine`` engines.
         # ``psycopg`` imports lazily, so this dependency stays optional —
         # existing psycopg2-only users are unaffected.
-        "psycopg3": ["psycopg[binary]>=3.1"],
+        #
+        # ``greenlet`` is the runtime that SQLAlchemy uses to bridge async
+        # callers into its synchronous internals; without it any call into
+        # ``sqlalchemy.ext.asyncio`` (including ``engine.dispose()``) raises
+        # at the first ``await``. ``greenlet`` ships only as a C extension
+        # and is intentionally scoped to the async extra so the psycopg2
+        # sync user does not need to build it.
+        "psycopg3": [
+            "psycopg[binary]>=3.1",
+            "greenlet>=1",
+        ],
     },
     zip_safe=False,
     entry_points={
