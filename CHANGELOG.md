@@ -16,13 +16,16 @@ addition.
   (compilers, capability flags, reflection, Superset cancel-query shim)
   consistent across both paths.
 - SQLAlchemy `create_async_engine("risingwave+psycopg://...")` is now
-  supported. The previous `InvalidRequestError` guard from 2.0.x is
-  removed because the underlying async dialect is in place.
+  supported. The sync `RisingWaveDialect_psycopg.get_async_dialect_cls(...)`
+  dispatches to `RisingWaveDialect_psycopg_async` so both sync and async
+  paths share the `_RisingWaveCommon` overrides.
 - Optional `psycopg3` extras: `pip install "sqlalchemy-risingwave[psycopg3]"`.
 - A documentation page at `docs/async.md` covering the async usage
   pattern, FastAPI sketch, the streaming visibility reminder, and the
   exact set of behaviours every PR validates against a real RisingWave
   instance in CI.
+- A runnable `examples/async_usage.py` script covering minimal SELECT,
+  write → explicit FLUSH → read, and `asyncio.gather` concurrency.
 - README "Async support" section.
 
 ### Changed

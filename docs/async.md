@@ -45,6 +45,19 @@ only resolves through the `risingwave+psycopg://` URL family.
 
 [psycopg3]: https://www.psycopg.org/psycopg3/docs/
 
+## Runnable example
+
+The repository includes a script that exercises the main async patterns:
+
+```sh
+python examples/async_usage.py
+```
+
+It runs a minimal `SELECT`, a parameterised `INSERT` followed by explicit
+`FLUSH`, and several independent queries through `asyncio.gather` to show
+client-side concurrency. Override the connection URL with
+`RISINGWAVE_ASYNC_URL` when testing against a remote cluster.
+
 ## Basic usage
 
 ```python

@@ -45,6 +45,13 @@ optional `psycopg3` extra:
 pip install -U "sqlalchemy-risingwave[psycopg3]"
 ```
 
+The benefit is Python-side concurrency: while one query is waiting on
+network I/O, the event loop can run other coroutines. This is useful for
+FastAPI / Starlette-style services that need many concurrent RisingWave
+queries from one process. It does **not** make a single RisingWave query
+execute faster, and it does **not** change RisingWave's streaming
+read-after-write visibility (see [`docs/streaming.md`](docs/streaming.md)).
+
 Sync and async both go through the same `risingwave+psycopg://` URL —
 SQLAlchemy picks the right dialect class from the engine factory:
 
@@ -85,7 +92,8 @@ See [`docs/async.md`](docs/async.md) for the full usage guide, the
 FastAPI sketch, the read-after-write reminder (RisingWave streaming
 visibility still applies — async does not change it), and the list of
 behaviour each PR is required to validate against a real RisingWave
-instance in CI.
+instance in CI. A runnable script is available at
+[`examples/async_usage.py`](examples/async_usage.py).
 
 ## SQLAlchemy compatibility
 
