@@ -74,6 +74,7 @@ class RisingWaveDDLCompiler(PGDDLCompiler):
             )
         )
 
+
 class RisingWaveTypeCompiler(PGTypeCompiler):
     """Type compiler that drops PostgreSQL-style length / precision arguments.
 
@@ -155,6 +156,69 @@ _type_map = {
 
 
 # Unsupported: Int256, Serial, Struct, List
+
+def _get_column_type_from_information_schema(
+    type_str,
+    column_name,
+    character_maximum_length=None,
+    numeric_precision=None,
+    numeric_scale=None,
+):
+    # RisingWave VARCHAR is unbounded, and current RisingWave rejects
+    # PostgreSQL-style VARCHAR(n) DDL. Do not synthesize a length that the
+    # database does not enforce.
+    del character_maximum_length
+
+    m = re.match(r"^struct<.*>$", type_str)
+    if m:
+        warn("Struct is not supported")
+        return sqltypes.NULLTYPE
+
+    m = re.match(
+        r"^([a-z ]+)(?:\(([^)]*)\))?((\[\])*)$",
+        type_str,
+    )
+    kwargs = {}
+    if m:
+        groups = m.groups()
+        type_name = groups[0]
+        type_args = groups[1]
+
+        if type_name in _type_map:
+            data_type = _type_map[type_name]
+        else:
+            data_type = None
+
+        if type_name == "timestamp with time zone":
+            kwargs["timezone"] = True
+        if type_name in ("numeric", "decimal"):
+            if numeric_precision is not None:
+                kwargs["precision"] = int(numeric_precision)
+            if numeric_scale is not None:
+                kwargs["scale"] = int(numeric_scale)
+            if type_args and numeric_precision is None and numeric_scale is None:
+                numeric_args = [
+                    int(arg.strip()) for arg in type_args.split(",") if arg.strip()
+                ]
+                if len(numeric_args) >= 1:
+                    kwargs["precision"] = numeric_args[0]
+                if len(numeric_args) >= 2:
+                    kwargs["scale"] = numeric_args[1]
+    else:
+        data_type = None
+        groups = None
+
+    if data_type:
+        type_class = data_type(**kwargs)
+        if groups[2]:
+            array_suffixes = re.findall(r"\[\]", groups[2])
+            for _ in array_suffixes:
+                type_class = sqltypes.ARRAY(type_class)
+        return type_class
+
+    warn(f"Did not recognize type '{type_str}' of column '{column_name}'")
+    return sqltypes.NULLTYPE
+
 
 logger = logging.getLogger(__name__)
 _warned_pg_cancel_probe = False
@@ -325,7 +389,8 @@ class _RisingWaveCommon:
     @reflection.cache
     def get_columns(self, conn, table_name, schema=None, **kw):
         sql = (
-            "SELECT column_name, data_type, is_nullable, column_default"
+            "SELECT column_name, data_type, is_nullable, column_default,"
+            " character_maximum_length, numeric_precision, numeric_scale"
             " FROM information_schema.columns WHERE "
             "table_schema = :table_schema AND table_name = :table_name"
         )
@@ -340,54 +405,13 @@ class _RisingWaveCommon:
         res = []
         for row in rows:
             name, type_str = row.column_name, row.data_type
-            # When there are type parameters, attach them to the
-            # returned type object.
-            m = re.match(r"^struct<.*>$", type_str)
-            if m:
-                warn("Struct is not supported")
-                type_class = sqltypes.NULLTYPE
-            else:
-                m = re.match(
-                    r"^([a-z ]+)(?:\(([^)]*)\))?((\[\])*)$",
-                    type_str,
-                )
-                kwargs = {}
-                if m:
-                    groups = m.groups()
-                    type_name = groups[0]
-                    type_args = groups[1]
-
-                    if type_name in _type_map:
-                        data_type = _type_map[type_name]
-                    else:
-                        data_type = None
-
-                    if type_name == "timestamp with time zone":
-                        kwargs["timezone"] = True
-                    if type_name in ("varchar", "character varying") and type_args:
-                        kwargs["length"] = int(type_args)
-                    if type_name in ("numeric", "decimal") and type_args:
-                        numeric_args = [
-                            int(arg.strip())
-                            for arg in type_args.split(",")
-                            if arg.strip()
-                        ]
-                        if len(numeric_args) >= 1:
-                            kwargs["precision"] = numeric_args[0]
-                        if len(numeric_args) >= 2:
-                            kwargs["scale"] = numeric_args[1]
-                else:
-                    data_type = None
-
-                if data_type:
-                    type_class = data_type(**kwargs)
-                    if groups[2]:
-                        array_suffixs = re.findall(r"\[\]", groups[2])
-                        for i in range(0, len(array_suffixs)):
-                            type_class = sqltypes.ARRAY(type_class)
-                else:
-                    warn(f"Did not recognize type '{type_str}' of column '{name}'")
-                    type_class = sqltypes.NULLTYPE
+            type_class = _get_column_type_from_information_schema(
+                type_str,
+                name,
+                character_maximum_length=row.character_maximum_length,
+                numeric_precision=row.numeric_precision,
+                numeric_scale=row.numeric_scale,
+            )
 
             column_info = dict(
                 name=name,
