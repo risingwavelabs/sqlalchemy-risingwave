@@ -20,7 +20,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: |
-            setup.py
+            pyproject.toml
             test-requirements.txt
       - name: Install Python dependencies
         run: |

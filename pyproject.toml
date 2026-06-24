@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sqlalchemy-risingwave"
+dynamic = ["version"]
+description = "RisingWave dialect for SQLAlchemy"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [
+    { name = "RisingWave Labs", email = "risingwave@dev.com" },
+]
+keywords = ["SQLAlchemy", "RisingWave"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "SQLAlchemy>=2.0,<2.1",
+]
+
+[project.optional-dependencies]
+psycopg3 = [
+    "psycopg[binary]>=3.1",
+    "greenlet>=1",
+]
+
+[project.urls]
+Source = "https://github.com/risingwavelabs/sqlalchemy-risingwave"
+Tracker = "https://github.com/risingwavelabs/sqlalchemy-risingwave/issues"
+
+[project.entry-points."sqlalchemy.dialects"]
+risingwave = "sqlalchemy_risingwave.psycopg2:RisingWaveDialect_psycopg2"
+"risingwave.psycopg2" = "sqlalchemy_risingwave.psycopg2:RisingWaveDialect_psycopg2"
+"risingwave.psycopg" = "sqlalchemy_risingwave.psycopg:RisingWaveDialect_psycopg"
+
+[tool.setuptools]
+include-package-data = true
+packages = ["sqlalchemy_risingwave"]
+zip-safe = false
+
+[tool.setuptools.dynamic]
+version = { attr = "sqlalchemy_risingwave.__version__" }
