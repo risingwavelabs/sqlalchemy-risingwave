@@ -3,6 +3,8 @@ from sqlalchemy import MetaData, Table, testing, inspect
 from sqlalchemy.testing import fixtures
 import sqlalchemy.types as sqltypes
 
+from sqlalchemy_risingwave.base import _get_column_type_from_information_schema
+
 
 class SchemaTest(fixtures.TestBase):
 
@@ -124,8 +126,33 @@ class SchemaTest(fixtures.TestBase):
             assert isinstance(columns["txt"], sqltypes.VARCHAR)
             assert isinstance(columns["short_name"], sqltypes.VARCHAR)
             assert isinstance(columns["amount"], sqltypes.DECIMAL)
+            assert columns["short_name"].length is None
+            assert columns["amount"].precision is None
+            assert columns["amount"].scale is None
 
             conn.execute(text("DROP TABLE reflected_types"))
+
+    def test_get_columns_preserves_catalog_numeric_metadata(self):
+        column_type = _get_column_type_from_information_schema(
+            "numeric",
+            "amount",
+            numeric_precision=10,
+            numeric_scale=2,
+        )
+
+        assert isinstance(column_type, sqltypes.DECIMAL)
+        assert column_type.precision == 10
+        assert column_type.scale == 2
+
+    def test_get_columns_does_not_fabricate_varchar_length(self):
+        column_type = _get_column_type_from_information_schema(
+            "character varying",
+            "name",
+            character_maximum_length=12,
+        )
+
+        assert isinstance(column_type, sqltypes.VARCHAR)
+        assert column_type.length is None
 
     def test_get_view_names(self):
         with testing.db.begin() as conn:

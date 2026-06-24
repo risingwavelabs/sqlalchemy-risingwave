@@ -135,6 +135,10 @@ at the data layer — not a silent change to a user-declared invariant:
   unparameterised forms
   ([PR #50](https://github.com/risingwavelabs/sqlalchemy-risingwave/pull/50)).
   RisingWave does not enforce length / precision caps.
+  Reflected columns likewise do not report a `VARCHAR` length. `DECIMAL` /
+  `NUMERIC` precision and scale are populated only when RisingWave exposes
+  them through `information_schema`; current RisingWave versions report them
+  as unknown.
 * `Uuid()` / `UUID` → `VARCHAR` with SQLAlchemy non-native UUID round-trip
   ([PR #51](https://github.com/risingwavelabs/sqlalchemy-risingwave/pull/51)).
   Format validation moves to the application layer.
