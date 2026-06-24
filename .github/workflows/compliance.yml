@@ -15,7 +15,7 @@ on:
       - compliance/**
       - sqlalchemy_risingwave/**
       - setup.cfg
-      - setup.py
+      - pyproject.toml
       - test-requirements.in
       - test-requirements.txt
       - .github/workflows/compliance.yml
@@ -38,7 +38,7 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: |
-            setup.py
+            pyproject.toml
             test-requirements.txt
 
       - name: Install Python dependencies

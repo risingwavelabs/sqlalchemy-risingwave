@@ -26,7 +26,7 @@ pip install sqlalchemy-risingwave
 Recommend install packages locally like below. If directly from PyPI, the version may not be the most updated.
 
 ```
-python setup.py sdist bdist_wheel # generate dist
+python -m build # generate dist
 pip install -e . # install this package
 ```
 
