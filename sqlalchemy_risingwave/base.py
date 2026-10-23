@@ -44,9 +44,10 @@ class RisingWaveDDLCompiler(PGDDLCompiler):
         if not self._has_pg_serial_autoincrement(column):
             return spec
 
+        column_name = self.preparer.format_column(column)
         for serial_kw, concrete_kw in self._SERIAL_KEYWORDS:
-            if serial_kw in spec:
-                spec = spec.replace(serial_kw, concrete_kw)
+            if spec.startswith(column_name + serial_kw):
+                return column_name + concrete_kw + spec[len(column_name + serial_kw):]
         return spec
 
     def _has_pg_serial_autoincrement(self, column):
